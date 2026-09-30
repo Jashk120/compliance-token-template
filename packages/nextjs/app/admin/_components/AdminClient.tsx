@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { type ComplianceApiResult, fetchAudit, runAdminAction } from "~~/utils/compliance/api";
+import { runAdminActionServer } from "../actions";
+import { ApiRequestError, type ComplianceApiResult, fetchAudit, runAdminAction } from "~~/utils/compliance/api";
 import { describeError } from "~~/utils/compliance/clientErrors";
 import { shortAddress } from "~~/utils/compliance/format";
 import type { PublicConfig } from "~~/utils/compliance/types";
@@ -54,20 +55,32 @@ export function AdminClient({ config }: { config: PublicConfig }) {
     loadState();
   }, [loadState]);
 
-  async function run(action: string, account?: string) {
-    if (!adminToken) {
-      notification.error("Enter the admin API token first.");
-      return;
+  async function executeAdminAction(action: string, account?: string): Promise<ComplianceApiResult> {
+    const override = adminToken.trim();
+    if (override) {
+      return runAdminAction(action, override, account);
     }
+    const outcome = await runAdminActionServer(action, account ?? null);
+    if (!outcome.ok) {
+      throw new ApiRequestError(outcome.code, outcome.message, 422);
+    }
+    return outcome.result;
+  }
+
+  async function run(action: string, account?: string) {
     const label = account ? `${action} ${shortAddress(account)}` : action;
     if (!window.confirm(`Confirm: ${label}?`)) {
       return;
     }
     setBusy(label);
     try {
-      const result = await runAdminAction(action, adminToken, account);
+      const result = await executeAdminAction(action, account);
       setLastResult(result);
-      notification.success(`${label} succeeded`);
+      if (result.alreadyInState) {
+        notification.info(result.message ?? `${label}: no change needed.`);
+      } else {
+        notification.success(`${label} succeeded`);
+      }
       await loadState();
     } catch (caught) {
       notification.error(describeError(caught));
@@ -127,29 +140,36 @@ export function AdminClient({ config }: { config: PublicConfig }) {
           <div className="card-body gap-3">
             <h2 className="card-title text-lg">Admin API token</h2>
             <p className="text-base-content/60 text-xs">
-              Demo-grade guard: the token is compared server-side against <code>ADMIN_API_TOKEN</code>.
+              Actions are signed server-side with <code>ADMIN_API_TOKEN</code>, which never reaches the browser. Leave
+              this blank to use it automatically, or paste a token to send it explicitly.
             </p>
             <input
               className="input input-bordered"
               type="password"
               value={adminToken}
               onChange={event => setAdminToken(event.target.value)}
-              placeholder="Bearer token"
+              placeholder="Optional token override"
             />
             {lastResult ? (
-              <div className="alert alert-success text-xs">
-                <span className="break-all">
-                  {lastResult.action} succeeded · tx {lastResult.txId} ·{" "}
-                  <a
-                    className="link"
-                    href={`${scanBase}/transaction/${encodeURIComponent(lastResult.txId)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    HashScan
-                  </a>
-                </span>
-              </div>
+              lastResult.alreadyInState ? (
+                <div className="alert alert-info text-xs">
+                  <span>{lastResult.message}</span>
+                </div>
+              ) : lastResult.txId ? (
+                <div className="alert alert-success text-xs">
+                  <span className="break-all">
+                    {lastResult.action} succeeded · tx {lastResult.txId} ·{" "}
+                    <a
+                      className="link"
+                      href={`${scanBase}/transaction/${encodeURIComponent(lastResult.txId)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      HashScan
+                    </a>
+                  </span>
+                </div>
+              ) : null
             ) : null}
           </div>
         </section>

@@ -21,13 +21,18 @@ export async function getAccountIdByEvm(evm: string): Promise<string | null> {
 export async function getTokenInfo(
   tokenAddress: string,
 ): Promise<{ tokenId: string; paused: boolean; name: string; symbol: string } | null> {
-  const body = await mirrorGet<{ token_id?: string; paused?: boolean; name?: string; symbol?: string }>(
+  const body = await mirrorGet<{ token_id?: string; pause_status?: string; name?: string; symbol?: string }>(
     `/api/v1/tokens/${tokenAddress}`,
   );
   if (!body?.token_id) {
     return null;
   }
-  return { tokenId: body.token_id, paused: Boolean(body.paused), name: body.name ?? "", symbol: body.symbol ?? "" };
+  return {
+    tokenId: body.token_id,
+    paused: body.pause_status === "PAUSED",
+    name: body.name ?? "",
+    symbol: body.symbol ?? "",
+  };
 }
 
 export async function getTokenRelationship(
@@ -35,11 +40,11 @@ export async function getTokenRelationship(
   tokenId: string,
 ): Promise<{ associated: boolean; kycGranted: boolean; frozen: boolean }> {
   const body = await mirrorGet<{
-    tokens?: { token_id: string; kyc_status?: string | null; frozen?: boolean }[];
+    tokens?: { token_id: string; kyc_status?: string | null; freeze_status?: string }[];
   }>(`/api/v1/accounts/${evm}/tokens?token.id=${encodeURIComponent(tokenId)}&limit=1`);
   const token = body?.tokens?.[0];
   if (!token) {
     return { associated: false, kycGranted: false, frozen: false };
   }
-  return { associated: true, kycGranted: token.kyc_status === "GRANTED", frozen: Boolean(token.frozen) };
+  return { associated: true, kycGranted: token.kyc_status === "GRANTED", frozen: token.freeze_status === "FROZEN" };
 }

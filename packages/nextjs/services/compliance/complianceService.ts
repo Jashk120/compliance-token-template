@@ -18,13 +18,32 @@ export type ComplianceActionResult = {
   action: ComplianceAction;
   account: string | null;
   operator: string;
-  txId: string;
-  auditTxId: string;
+  txId: string | null;
+  auditTxId: string | null;
   timestamp: string;
+  alreadyInState?: boolean;
+  message?: string;
 };
 
 export function operatorEvmAddress(): string {
   return `0x${AccountId.fromString(getServerConfig().operatorId).toEvmAddress()}`;
+}
+
+export function alreadyInStateResult(
+  action: ComplianceAction,
+  account: string | null,
+  message: string,
+): ComplianceActionResult {
+  return {
+    action,
+    account,
+    operator: operatorEvmAddress(),
+    txId: null,
+    auditTxId: null,
+    timestamp: new Date().toISOString(),
+    alreadyInState: true,
+    message,
+  };
 }
 
 function describeSdkError(error: unknown): string {

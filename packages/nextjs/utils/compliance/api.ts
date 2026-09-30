@@ -34,9 +34,11 @@ export type ComplianceApiResult = {
   action: string;
   account: string | null;
   operator: string;
-  txId: string;
-  auditTxId: string;
+  txId: string | null;
+  auditTxId: string | null;
   timestamp: string;
+  alreadyInState?: boolean;
+  message?: string;
 };
 
 export function fetchConfig(): Promise<PublicConfig> {
