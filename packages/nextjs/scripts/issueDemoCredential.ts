@@ -1,5 +1,6 @@
 import { canonicalJson } from "../utils/compliance/canonical";
 import { PrivateKey } from "@hiero-ledger/sdk";
+import { privateKeyToAccount } from "viem/accounts";
 
 const PKCS8_ED25519_PREFIX = "302e020100300506032b657004220420";
 
@@ -21,11 +22,22 @@ function issuerPrivateKey(): PrivateKey {
   return raw.startsWith(PKCS8_ED25519_PREFIX) ? PrivateKey.fromStringDer(raw) : PrivateKey.fromStringED25519(raw);
 }
 
-function main(): void {
-  const subject = readFlag("--address") ?? process.env.INVESTOR_ADDRESS;
-  if (!subject) {
-    throw new Error("Provide --address 0x... or set INVESTOR_ADDRESS");
+function resolveSubject(): string {
+  const explicit = readFlag("--address") ?? process.env.INVESTOR_ADDRESS;
+  if (explicit) {
+    return explicit;
   }
+  const investorKey = process.env.INVESTOR_PRIVATE_KEY?.trim();
+  if (investorKey) {
+    return privateKeyToAccount(investorKey as `0x${string}`).address;
+  }
+  throw new Error(
+    "No investor address found. Pass --address 0x..., set INVESTOR_ADDRESS, or set INVESTOR_PRIVATE_KEY in packages/hardhat/.env",
+  );
+}
+
+function main(): void {
+  const subject = resolveSubject();
   const issuerDid = required("ISSUER_DID");
   const days = Number(readFlag("--days") ?? "30");
 

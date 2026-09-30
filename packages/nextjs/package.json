@@ -15,7 +15,7 @@
     "test:watch": "vitest",
     "issuer:register": "tsx --env-file=.env.local --import ./scripts/registerHieroNodeClientLoader.mjs scripts/registerIssuerDid.ts",
     "audit:create-topic": "tsx --env-file=.env.local scripts/createAuditTopic.ts",
-    "credential:issue": "tsx --env-file=.env.local scripts/issueDemoCredential.ts"
+    "credential:issue": "tsx --env-file=../hardhat/.env --env-file=.env.local scripts/issueDemoCredential.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.1.5",
