@@ -413,24 +413,26 @@ export function InvestorClient({ config }: Props) {
                 The Chainlink HBAR/USD price is stale. Buying is disabled until the feed updates.
               </div>
             ) : null}
-            <div className="flex flex-col items-end gap-3 sm:flex-row">
-              <label className="form-control grow">
-                <span className="label-text text-base-content/70">Amount (HBAR)</span>
-                <input
-                  className="input input-bordered"
-                  inputMode="decimal"
-                  value={hbarInput}
-                  onChange={event => setHbarInput(event.target.value)}
-                  placeholder="1.0"
-                />
-              </label>
-              <div className="stats bg-base-200 w-full sm:w-auto">
+            <label className="form-control w-full">
+              <span className="label-text text-base-content/70">Amount (HBAR)</span>
+              <input
+                className="input input-bordered w-full"
+                inputMode="decimal"
+                value={hbarInput}
+                onChange={event => setHbarInput(event.target.value)}
+                placeholder="1.0"
+              />
+            </label>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="stats bg-base-200">
                 <div className="stat px-4 py-2">
-                  <div className="stat-title text-xs">Estimated value</div>
+                  <div className="stat-title text-xs whitespace-nowrap">Estimated value</div>
                   <div className="stat-value text-lg">
                     {estimateUsd8 !== undefined ? formatUsd8(estimateUsd8) : "—"}
                   </div>
-                  <div className="stat-desc text-xs">price {price8 ? formatUsd8(price8) : "—"} / HBAR</div>
+                  <div className="stat-desc text-xs whitespace-nowrap">
+                    price {price8 ? formatUsd8(price8) : "—"} / HBAR
+                  </div>
                 </div>
               </div>
               <button

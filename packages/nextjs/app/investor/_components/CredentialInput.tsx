@@ -56,7 +56,7 @@ export function CredentialInput({ value, onChange, disabled }: Props) {
       </p>
       <textarea
         id="investor-credential"
-        className="textarea textarea-bordered h-44 w-full font-mono text-xs leading-relaxed focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+        className="textarea textarea-bordered h-44 w-full resize-y rounded-2xl p-3 font-mono text-xs leading-relaxed focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
         value={value}
         onChange={event => onChange(event.target.value)}
         placeholder='{ "subject": "0x...", "issuer": "did:hedera:...", ... }'
