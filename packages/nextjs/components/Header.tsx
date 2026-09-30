@@ -6,19 +6,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bars3Icon,
-  BugAntIcon,
   ClipboardDocumentListIcon,
   MagnifyingGlassIcon,
   ShieldCheckIcon,
   UserIcon,
 } from "@heroicons/react/24/outline";
 import { RainbowKitCustomConnectButton } from "~~/components/scaffold-hbar";
-import { useOutsideClick } from "~~/hooks/scaffold-hbar";
+import { useOutsideClick, useTargetNetwork } from "~~/hooks/scaffold-hbar";
 
 type HeaderMenuLink = {
   label: string;
   href: string;
   icon?: React.ReactNode;
+  external?: boolean;
 };
 
 export const menuLinks: HeaderMenuLink[] = [
@@ -41,37 +41,42 @@ export const menuLinks: HeaderMenuLink[] = [
     href: "/audit",
     icon: <ClipboardDocumentListIcon className="h-4 w-4" />,
   },
-  {
-    label: "Debug Contracts",
-    href: "/debug",
-    icon: <BugAntIcon className="h-4 w-4" />,
-  },
-  {
-    label: "Block Explorer",
-    href: "/blockexplorer",
-    icon: <MagnifyingGlassIcon className="h-4 w-4" />,
-  },
 ];
 
 export const HeaderMenuLinks = () => {
   const pathname = usePathname();
+  const { targetNetwork } = useTargetNetwork();
+  const blockExplorerUrl = targetNetwork.blockExplorers?.default?.url ?? "https://hashscan.io/testnet";
+  const links: HeaderMenuLink[] = [
+    ...menuLinks,
+    {
+      label: "Block Explorer",
+      href: blockExplorerUrl,
+      icon: <MagnifyingGlassIcon className="h-4 w-4" />,
+      external: true,
+    },
+  ];
 
   return (
     <>
-      {menuLinks.map(({ label, href, icon }) => {
+      {links.map(({ label, href, icon, external }) => {
         const isActive = pathname === href;
+        const className = `${
+          isActive ? "bg-primary/10 text-primary font-semibold" : "hover:bg-primary/5"
+        } py-1.5 px-3 text-sm rounded-full gap-2 grid grid-flow-col transition-colors`;
         return (
           <li key={href}>
-            <Link
-              href={href}
-              passHref
-              className={`${
-                isActive ? "bg-primary/10 text-primary font-semibold" : "hover:bg-primary/5"
-              } py-1.5 px-3 text-sm rounded-full gap-2 grid grid-flow-col transition-colors`}
-            >
-              {icon}
-              <span>{label}</span>
-            </Link>
+            {external ? (
+              <a href={href} target="_blank" rel="noreferrer" className={className}>
+                {icon}
+                <span>{label}</span>
+              </a>
+            ) : (
+              <Link href={href} passHref className={className}>
+                {icon}
+                <span>{label}</span>
+              </Link>
+            )}
           </li>
         );
       })}
