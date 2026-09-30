@@ -1,6 +1,6 @@
 {
   "name": "compliance-token",
-  "description": "HTS compliance token with KYC, freeze and pause controls, plus a Chainlink-priced USD token sale on Hedera. Hardhat contracts and a Next.js frontend.",
+  "description": "HTS compliance token with KYC, freeze and pause controls, a Chainlink-priced USD token sale, a did:hedera credential flow and an HCS audit log on Hedera. Hardhat contracts and a Next.js frontend.",
   "create-scaffold-hbar": {
     "capabilities": {
       "frontend": ["nextjs-app"],
@@ -17,7 +17,7 @@
         {
           "steps": [
             {
-              "text": "This template uses Hardhat and deploys a KYC/freeze/pause compliance token plus a Chainlink-priced USD sale to Hedera testnet/mainnet."
+              "text": "This template uses Hardhat and deploys a KYC/freeze/pause compliance token plus a Chainlink-priced USD sale to Hedera testnet, with Ed25519 investor credentials verified against a did:hedera issuer and an HCS audit log."
             }
           ]
         },
@@ -25,24 +25,28 @@
           "title": "Next steps",
           "steps": [
             {
-              "label": "Set up deployer account",
-              "command": "{run:hardhat:account:generate}"
+              "label": "Set up credentials (hidden prompts, nothing pasted into chat)",
+              "command": "{run:setup}"
+            },
+            {
+              "label": "Verify the setup",
+              "command": "{run:doctor}"
             },
             {
               "label": "Fund your account with testnet HBAR",
               "url": "https://portal.hedera.com/faucet"
             },
             {
-              "label": "Run contract tests",
+              "label": "Deploy contracts, token, roles, audit topic and issuer DID",
+              "command": "{run:deploy:testnet}"
+            },
+            {
+              "label": "Run the contract tests",
               "command": "{run:hardhat:test}"
             },
             {
-              "label": "Deploy contracts",
-              "command": "{run:hardhat:deploy} --network hederaTestnet"
-            },
-            {
               "label": "Start the frontend",
-              "command": "{run:next:start}"
+              "command": "{run:dev}"
             }
           ]
         }

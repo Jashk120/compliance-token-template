@@ -89,9 +89,12 @@ const config: HardhatUserConfig = {
 };
 
 // Extend the deploy task to also generate TypeScript ABIs after deployment.
+// `yarn deploy:testnet` sets DX_SKIP_TS_ABI so generated ids stay in packages/nextjs/.env.local.
 task("deploy").setAction(async (args, hre, runSuper) => {
   await runSuper(args);
-  await generateTsAbis(hre);
+  if (process.env.DX_SKIP_TS_ABI !== "true") {
+    await generateTsAbis(hre);
+  }
 });
 
 // Extend the verify task to show HashScan link after Sourcify verification.

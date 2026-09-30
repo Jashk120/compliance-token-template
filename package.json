@@ -10,6 +10,11 @@
   },
   "scripts": {
     "format": "yarn next:format && yarn hardhat:format",
+    "dev": "yarn next:dev",
+    "doctor": "yarn workspace @sh/hardhat dx:doctor",
+    "setup": "yarn workspace @sh/hardhat dx:setup",
+    "deploy:testnet": "yarn workspace @sh/hardhat dx:deploy:testnet",
+    "proof": "yarn workspace @sh/hardhat dx:proof",
     "hardhat:account": "yarn workspace @sh/hardhat account",
     "hardhat:account:generate": "yarn workspace @sh/hardhat account:generate",
     "hardhat:account:import": "yarn workspace @sh/hardhat account:import",
