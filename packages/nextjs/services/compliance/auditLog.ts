@@ -45,7 +45,7 @@ export async function submitAuditMessage(message: AuditMessage): Promise<string>
   const client = getOperatorClient();
   const response = await new TopicMessageSubmitTransaction()
     .setTopicId(auditTopicId)
-    .setMessage(encodeAuditMessage(message))
+    .setMessage(Buffer.from(encodeAuditMessage(message), "base64"))
     .execute(client);
   const receipt = await response.getReceipt(client);
   if (receipt.status.toString() !== Status.Success.toString()) {

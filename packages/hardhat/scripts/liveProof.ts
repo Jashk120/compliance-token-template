@@ -309,21 +309,35 @@ async function sdkCallerProof(probeAddress?: string): Promise<void> {
     const contractId = probeAddress.startsWith("0x")
       ? sdk.ContractId.fromEvmAddress(0, 0, probeAddress)
       : sdk.ContractId.fromString(probeAddress);
-    const resp = await new sdk.ContractExecuteTransaction()
-      .setContractId(contractId)
-      .setGas(200000)
-      .setFunction("record()")
-      .execute(client);
-    const rec = await resp.getRecord(client);
-    const topic = rec?.contractFunctionResult?.logs?.[0]?.topics?.[1];
-    const caller = topic ? `0x${Buffer.from(topic).subarray(12).toString("hex")}` : "unknown";
+    const beforeRes = await fetch(`${MIRROR}/api/v1/contracts/${probeAddress}/results?limit=1&order=desc`);
+    const before = beforeRes.ok ? ((await beforeRes.json())?.results?.[0]?.timestamp ?? "") : "";
+    await Promise.race([
+      new sdk.ContractExecuteTransaction()
+        .setContractId(contractId)
+        .setGas(200000)
+        .setFunction("record()")
+        .execute(client),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("execute timeout")), 60000)),
+    ]);
+    let caller = "unknown";
+    for (let i = 0; i < 20 && caller === "unknown"; i++) {
+      const res = await fetch(`${MIRROR}/api/v1/contracts/${probeAddress}/results?limit=1&order=desc`);
+      if (res.ok) {
+        const top: any = (await res.json())?.results?.[0];
+        if (top?.timestamp && top.timestamp !== before && top.from) {
+          caller = top.from;
+        }
+      }
+      if (caller === "unknown") await new Promise(resolve => setTimeout(resolve, 1500));
+    }
     record(
       "LIVE-3c SDK msg.sender",
       OPERATOR_LONG_ZERO,
       caller,
       "-",
-      caller === OPERATOR_LONG_ZERO ? "match" : "MISMATCH",
+      `${caller === OPERATOR_LONG_ZERO ? "match" : "MISMATCH"}; CallerProbe record() from Mirror Node ${EXPLORER}/contract/${probeAddress}`,
     );
+    client.close();
   } catch (err) {
     record("LIVE-3c SDK msg.sender", OPERATOR_LONG_ZERO, `error: ${(err as Error).message}`, "-");
   }

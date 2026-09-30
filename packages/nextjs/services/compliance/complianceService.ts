@@ -2,7 +2,13 @@ import { submitAuditMessage } from "./auditLog";
 import { getServerConfig } from "./config";
 import { ComplianceActionError } from "./errors";
 import { getOperatorClient } from "./hederaClient";
-import { AccountId, ContractExecuteTransaction, ContractFunctionParameters, Status } from "@hiero-ledger/sdk";
+import {
+  AccountId,
+  ContractExecuteTransaction,
+  ContractFunctionParameters,
+  ContractId,
+  Status,
+} from "@hiero-ledger/sdk";
 import type { ComplianceAction } from "~~/utils/compliance/hts";
 import type { AuditMessage } from "~~/utils/compliance/types";
 
@@ -33,11 +39,15 @@ function describeSdkError(error: unknown): string {
   return "The contract call failed.";
 }
 
+function resolveContractId(address: string): ContractId {
+  return address.startsWith("0x") ? ContractId.fromEvmAddress(0, 0, address) : ContractId.fromString(address);
+}
+
 async function executeAction(action: ComplianceAction, account?: string): Promise<string> {
   const config = getServerConfig();
   const client = getOperatorClient();
   const transaction = new ContractExecuteTransaction()
-    .setContractId(config.complianceTokenAddress)
+    .setContractId(resolveContractId(config.complianceTokenAddress))
     .setGas(CONTRACT_GAS)
     .setFunction(action, account ? new ContractFunctionParameters().addAddress(account) : undefined);
 
