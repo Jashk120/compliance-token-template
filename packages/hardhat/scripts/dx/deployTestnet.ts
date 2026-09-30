@@ -24,6 +24,20 @@ const hardhatRoot = path.join(repoRoot, "packages/hardhat");
 const nextEnvPath = path.join(repoRoot, PACKAGES.nextEnv);
 const deploymentsDir = path.join(hardhatRoot, "deployments/hederaTestnet");
 
+// Deploy prerequisites only: the topic, contract addresses and feed are what this
+// command creates/uses, so they must not block it (doctor reports them as MISSING).
+const DEPLOY_PREREQUISITE_IDS = new Set([
+  "node",
+  "package-manager",
+  "hardhat-env",
+  "nextjs-env",
+  "tracked-secrets",
+  "nextjs-secret-leak",
+  "deployer",
+  "operator",
+  "issuer-key",
+]);
+
 function cleanEnv(extra: Record<string, string | undefined>): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
   for (const [key, value] of Object.entries(extra)) {
@@ -156,9 +170,12 @@ function registerIssuerDid(): string | undefined {
 
 async function main(): Promise<void> {
   const report = await runDoctor({ repoRoot, strict: true });
-  if (!report.ready) {
+  const blockers = report.checks.filter(check => DEPLOY_PREREQUISITE_IDS.has(check.id) && check.status !== "OK");
+  if (blockers.length > 0) {
     renderDoctor(report);
-    console.error("\nNOT READY for deploy:testnet. Fix the issues above (start with `yarn setup`).");
+    console.error(
+      "\nNOT READY for deploy:testnet (deploy prerequisites). Fix the issues above (start with `yarn setup`).",
+    );
     process.exit(1);
   }
 
