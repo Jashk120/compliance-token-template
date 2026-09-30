@@ -61,6 +61,24 @@ The Chainlink HBAR/USD answer is older than `TokenSale.maxStaleness`. `yarn doct
 
 It is resumable by design: `hardhat-deploy` reuses deployed contracts and the script skips work already visible on-chain / the Mirror Node, printing a `Resumed — skipped: …` line. It never rewrites `deployedContracts.ts`.
 
+## Helper script fails with "Missing required environment variable …"
+
+`credential:issue`, `issuer:register` and `audit:create-topic` load
+`packages/nextjs/.env.local` via `tsx --env-file`; if a variable is still missing, run
+`yarn setup` first — the scripts read the file, they never prompt for a key.
+
+## `credential:issue` prints "No investor address found"
+
+Supply the subject with `--address 0x...`, set `INVESTOR_ADDRESS` in
+`packages/nextjs/.env.local`, or set `INVESTOR_PRIVATE_KEY` in `packages/hardhat/.env`.
+The credential is only printed, never stored.
+
+## Admin action returns `alreadyInState`
+
+Not an error: `/api/admin/[action]` pre-checks the token and account relationship and skips
+the transaction when the action is already satisfied (e.g. freezing a frozen account). The
+response carries `alreadyInState: true` and a human-readable `message`.
+
 ## Tests
 
 - `yarn next:test` — vitest; the credential/DID tests mock the resolver (no network).

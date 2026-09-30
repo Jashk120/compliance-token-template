@@ -25,7 +25,8 @@ npm create scaffold-hbar@latest -- --template <owner>/<this-repo>
 - **Verifiable credentials** — `did:hedera` issuer, Ed25519-signed credentials, and
   on-chain DID resolution (with a documented reduced-mode fallback).
 - **HCS audit trail** — every compliance action is submitted to a Hedera Consensus
-  Service topic, with a Mirror-Node-backed timeline in the UI.
+  Service topic, with a Mirror-Node-backed timeline in the UI showing friendly action
+  labels, HashScan links, and the copyable credential-proof hash.
 - **Developer experience tooling** — `yarn doctor` / `yarn setup` / `yarn deploy:testnet`
   / `yarn proof` for secret-safe, resumable setup and deployment.
 - **Agent skills** — task-focused guidance for coding agents in `.agents/skills/` (see
@@ -48,14 +49,14 @@ the treasury/key design and unit handling.
 
 ### Prerequisites at a glance
 
-| What | Why | How to get it |
-| --- | --- | --- |
-| Git | clone / scaffold the repo | <https://git-scm.com/downloads> |
-| Node.js ≥ 20.18.3 | runs Hardhat and Next.js | via nvm or fnm (below) |
-| Yarn 3 | package manager pinned by `packageManager` | `corepack enable` (Corepack ships with Node) |
-| npm | alternative runner; ships with Node | comes with Node |
-| Hedera testnet account(s) | deployer + operator (and the issuer is generated) | Hedera Portal (below) |
-| WalletConnect (Reown) project ID | wallet pairing for the frontend | <https://cloud.reown.com> |
+| What                             | Why                                               | How to get it                                |
+| -------------------------------- | ------------------------------------------------- | -------------------------------------------- |
+| Git                              | clone / scaffold the repo                         | <https://git-scm.com/downloads>              |
+| Node.js ≥ 20.18.3                | runs Hardhat and Next.js                          | via nvm or fnm (below)                       |
+| Yarn 3                           | package manager pinned by `packageManager`        | `corepack enable` (Corepack ships with Node) |
+| npm                              | alternative runner; ships with Node               | comes with Node                              |
+| Hedera testnet account(s)        | deployer + operator (and the issuer is generated) | Hedera Portal (below)                        |
+| WalletConnect (Reown) project ID | wallet pairing for the frontend                   | <https://cloud.reown.com>                    |
 
 **Not needed:** a global Hardhat install — Hardhat is a **local dependency** installed by
 `yarn install`. **Foundry and Docker are not needed** either.
@@ -140,14 +141,14 @@ have run — it prints the exact next command for each item.
 
 ### Common first-run problems
 
-| Symptom | Cause | Fix |
-| --- | --- | --- |
-| `node -v` shows < 20.18.3 or "Unsupported engine" | Node not switched | `nvm install 20 && nvm use 20` |
-| `yarn: command not found` or `yarn -v` shows `1.x` | Corepack not enabled | `corepack enable` |
-| `error This project's package.json defines "packageManager"` / lockfile errors | ran `npm install` against the Yarn lockfile | `rm -rf node_modules && yarn install` |
-| doctor: `Reachable: … [ WARN ]` | network / firewall / VPN / proxy | allow `testnet.hashio.io` and `testnet.mirrornode.hedera.com` |
-| `deploy:testnet` fails with insufficient funds | faucet not used | fund the deployer/operator from the faucet, re-run `yarn doctor` |
-| `yarn doctor` says `[UNSAFE]` | a secret is in a tracked/`NEXT_PUBLIC_` file | move it to `packages/hardhat/.env` / `packages/nextjs/.env.local` |
+| Symptom                                                                        | Cause                                        | Fix                                                               |
+| ------------------------------------------------------------------------------ | -------------------------------------------- | ----------------------------------------------------------------- |
+| `node -v` shows < 20.18.3 or "Unsupported engine"                              | Node not switched                            | `nvm install 20 && nvm use 20`                                    |
+| `yarn: command not found` or `yarn -v` shows `1.x`                             | Corepack not enabled                         | `corepack enable`                                                 |
+| `error This project's package.json defines "packageManager"` / lockfile errors | ran `npm install` against the Yarn lockfile  | `rm -rf node_modules && yarn install`                             |
+| doctor: `Reachable: … [ WARN ]`                                                | network / firewall / VPN / proxy             | allow `testnet.hashio.io` and `testnet.mirrornode.hedera.com`     |
+| `deploy:testnet` fails with insufficient funds                                 | faucet not used                              | fund the deployer/operator from the faucet, re-run `yarn doctor`  |
+| `yarn doctor` says `[UNSAFE]`                                                  | a secret is in a tracked/`NEXT_PUBLIC_` file | move it to `packages/hardhat/.env` / `packages/nextjs/.env.local` |
 
 ## Quick start
 
@@ -193,29 +194,29 @@ files are git-ignored. `yarn doctor` validates all of them without printing a va
 
 **`packages/hardhat/.env`** — contract-side (copy from `.env.example`):
 
-| Variable | Type / format | What it does | Created / validated by |
-| --- | --- | --- | --- |
-| `DEPLOYER_PRIVATE_KEY` | `0x` + 64 hex (ECDSA) | Signs deploys on testnet; acceptable on testnet only | `yarn setup` / `yarn doctor` |
-| `DEPLOYER_PRIVATE_KEY_ENCRYPTED` | Web3 keystore JSON | Encrypted alternative to the plain key (recommended) | `yarn hardhat:account:generate` or `yarn setup` |
-| `INVESTOR_PRIVATE_KEY` | `0x` + 64 hex | Throwaway buyer used by `yarn proof` | `yarn setup` (optional) / `yarn proof` |
-| `OFFICER_PRIVATE_KEY` | `0x` + 64 hex | Optional override for the acting compliance officer in the proof | manual |
-| `HEDERA_RPC_URL` | URL | Hedera JSON-RPC endpoint (testnet default) | manual |
+| Variable                         | Type / format         | What it does                                                     | Created / validated by                          |
+| -------------------------------- | --------------------- | ---------------------------------------------------------------- | ----------------------------------------------- |
+| `DEPLOYER_PRIVATE_KEY`           | `0x` + 64 hex (ECDSA) | Signs deploys on testnet; acceptable on testnet only             | `yarn setup` / `yarn doctor`                    |
+| `DEPLOYER_PRIVATE_KEY_ENCRYPTED` | Web3 keystore JSON    | Encrypted alternative to the plain key (recommended)             | `yarn hardhat:account:generate` or `yarn setup` |
+| `INVESTOR_PRIVATE_KEY`           | `0x` + 64 hex         | Throwaway buyer used by `yarn proof`                             | `yarn setup` (optional) / `yarn proof`          |
+| `OFFICER_PRIVATE_KEY`            | `0x` + 64 hex         | Optional override for the acting compliance officer in the proof | manual                                          |
+| `HEDERA_RPC_URL`                 | URL                   | Hedera JSON-RPC endpoint (testnet default)                       | manual                                          |
 
 **`packages/nextjs/.env.local`** — frontend + API server (copy from `.env.example`):
 
-| Variable | Type / format | What it does | Created / validated by |
-| --- | --- | --- | --- |
-| `HEDERA_NETWORK` | `testnet` \| `mainnet` | Selects network, chain id, mirror and HashScan base | `yarn deploy:testnet` |
-| `HEDERA_OPERATOR_ID` | `0.0.x` | Operator account that signs compliance transactions | `yarn setup` / `yarn doctor` |
-| `HEDERA_OPERATOR_PRIVATE_KEY` | Ed25519 raw hex or DER | Operator key; derived public key is compared to the Mirror Node | `yarn setup` / `yarn doctor` |
-| `ISSUER_DID` | `did:hedera:testnet:<key>_<topic>` | Issuer DID resolved from HCS to verify credentials (live mode) | `yarn deploy:testnet` / `issuer:register` |
-| `ISSUER_DID_PRIVATE_KEY` | Ed25519 raw hex or DER | Signs investor credentials (`credential:issue`, `issuer:register`) | `yarn setup` / `yarn doctor` |
-| `ISSUER_PUBLIC_KEY` | base58 or multibase `z…` | Reduced-mode fallback: verify against this key instead of resolving the DID | `yarn setup` (fallback only) / `yarn doctor` |
-| `AUDIT_TOPIC_ID` | `0.0.x` | HCS topic for the audit log | `yarn deploy:testnet` / `audit:create-topic` / `yarn doctor` |
-| `COMPLIANCE_TOKEN_ADDRESS` | `0x` + 40 hex | `ComplianceToken` address (fallback when absent from `deployedContracts.ts`) | `yarn deploy:testnet` / `yarn doctor` |
-| `TOKEN_SALE_ADDRESS` | `0x` + 40 hex | `TokenSale` address | `yarn deploy:testnet` / `yarn doctor` |
-| `ADMIN_API_TOKEN` | ≥ 32 chars | Demo-grade Bearer token for `/api/admin/*` | `yarn setup` / `yarn doctor` |
-| `NEXT_PUBLIC_*` | public | WalletConnect id and RPC overrides (never a secret) | manual |
+| Variable                      | Type / format                      | What it does                                                                 | Created / validated by                                       |
+| ----------------------------- | ---------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `HEDERA_NETWORK`              | `testnet` \| `mainnet`             | Selects network, chain id, mirror and HashScan base                          | `yarn deploy:testnet`                                        |
+| `HEDERA_OPERATOR_ID`          | `0.0.x`                            | Operator account that signs compliance transactions                          | `yarn setup` / `yarn doctor`                                 |
+| `HEDERA_OPERATOR_PRIVATE_KEY` | Ed25519 raw hex or DER             | Operator key; derived public key is compared to the Mirror Node              | `yarn setup` / `yarn doctor`                                 |
+| `ISSUER_DID`                  | `did:hedera:testnet:<key>_<topic>` | Issuer DID resolved from HCS to verify credentials (live mode)               | `yarn deploy:testnet` / `issuer:register`                    |
+| `ISSUER_DID_PRIVATE_KEY`      | Ed25519 raw hex or DER             | Signs investor credentials (`credential:issue`, `issuer:register`)           | `yarn setup` / `yarn doctor`                                 |
+| `ISSUER_PUBLIC_KEY`           | base58 or multibase `z…`           | Reduced-mode fallback: verify against this key instead of resolving the DID  | `yarn setup` (fallback only) / `yarn doctor`                 |
+| `AUDIT_TOPIC_ID`              | `0.0.x`                            | HCS topic for the audit log                                                  | `yarn deploy:testnet` / `audit:create-topic` / `yarn doctor` |
+| `COMPLIANCE_TOKEN_ADDRESS`    | `0x` + 40 hex                      | `ComplianceToken` address (fallback when absent from `deployedContracts.ts`) | `yarn deploy:testnet` / `yarn doctor`                        |
+| `TOKEN_SALE_ADDRESS`          | `0x` + 40 hex                      | `TokenSale` address                                                          | `yarn deploy:testnet` / `yarn doctor`                        |
+| `ADMIN_API_TOKEN`             | ≥ 32 chars                         | Demo-grade Bearer token for `/api/admin/*`                                   | `yarn setup` / `yarn doctor`                                 |
+| `NEXT_PUBLIC_*`               | public                             | WalletConnect id and RPC overrides (never a secret)                          | manual                                                       |
 
 > **DID modes.** With `ISSUER_DID` set the server resolves the DID on-chain and verifies
 > against the DID document's `#did-root-key` (**live**). With only `ISSUER_PUBLIC_KEY` set
@@ -264,43 +265,62 @@ sequenceDiagram
   H-->>I: 200 + tx id + audit id
 ```
 
+The `/investor` page drives these steps as **associate → verify → buy**, unlocking
+each step from on-chain status.
+
 ## Contracts and response codes
 
-| Contract | Role |
-| --- | --- |
-| `ComplianceToken` | Creates the HTS token, owns its compliance keys and the treasury, role-gated KYC/freeze/pause. |
-| `TokenSale` | Chainlink-priced HBAR sale with a per-investor USD cap and staleness checks. |
-| `ChainlinkPriceFeedAdapter` | Swappable `IPriceFeed` over a Chainlink `AggregatorV3` proxy. |
-| `MockHTS` / `MockChainlinkAggregator` | Local stand-ins for `0x167` and a price feed. |
+| Contract                              | Role                                                                                           |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `ComplianceToken`                     | Creates the HTS token, owns its compliance keys and the treasury, role-gated KYC/freeze/pause. |
+| `TokenSale`                           | Chainlink-priced HBAR sale with a per-investor USD cap and staleness checks.                   |
+| `ChainlinkPriceFeedAdapter`           | Swappable `IPriceFeed` over a Chainlink `AggregatorV3` proxy.                                  |
+| `MockHTS` / `MockChainlinkAggregator` | Local stand-ins for `0x167` and a price feed.                                                  |
 
 `TokenSale.buy` lets HTS decide and maps the response code to a typed error:
 
-| Code | Error | Meaning |
-| --- | --- | --- |
-| 22 | — | success |
-| 184 | `NotAssociated` | account not associated with the token |
-| 176 | `KycNotGranted` | account has no KYC |
-| 165 | `Frozen` | account is frozen |
-| 265 | `Paused` | token is paused |
-| 15 | `TransferFailed` | invalid / nonexistent token |
+| Code | Error            | Meaning                               |
+| ---- | ---------------- | ------------------------------------- |
+| 22   | —                | success                               |
+| 184  | `NotAssociated`  | account not associated with the token |
+| 176  | `KycNotGranted`  | account has no KYC                    |
+| 165  | `Frozen`         | account is frozen                     |
+| 265  | `Paused`         | token is paused                       |
+| 15   | `TransferFailed` | invalid / nonexistent token           |
 
 Roles: `DEFAULT_ADMIN_ROLE` (roles + creation fee), `COMPLIANCE_OFFICER_ROLE`
 (compliance actions), `SALE_OPERATOR_ROLE` (`saleTransfer`, granted to `TokenSale`).
 
 ## API reference
 
-| Route | Method | Purpose |
-| --- | --- | --- |
-| `/api/kyc/request` | POST | Verify a signed credential, grant KYC, log to HCS. |
-| `/api/admin/[action]` | POST | `revoke-kyc`, `freeze`, `unfreeze`, `pause`, `unpause`; Bearer-guarded. |
-| `/api/audit` | GET | Paginated HCS messages from the Mirror Node. |
-| `/api/config` | GET | Public configuration + which env vars are missing. |
-| `/api/token` | GET | Token metadata. |
-| `/api/investor/status` | GET | Association / KYC / freeze / cap state. |
-| `/api/hedera/account` | GET | Account lookup helper. |
+| Route                  | Method | Purpose                                                                                                                                                                               |
+| ---------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/kyc/request`     | POST   | Verify a signed credential, grant KYC, log to HCS.                                                                                                                                    |
+| `/api/admin/[action]`  | POST   | `revoke-kyc`, `freeze`, `unfreeze`, `pause`, `unpause`; Bearer-guarded. Pre-checks state and returns `alreadyInState: true` with a message when no change is needed (no transaction). |
+| `/api/audit`           | GET    | Paginated HCS messages from the Mirror Node.                                                                                                                                          |
+| `/api/config`          | GET    | Public configuration + which env vars are missing.                                                                                                                                    |
+| `/api/token`           | GET    | Token metadata.                                                                                                                                                                       |
+| `/api/investor/status` | GET    | Association / KYC / freeze / cap state.                                                                                                                                               |
+| `/api/hedera/account`  | GET    | Account lookup helper.                                                                                                                                                                |
 
-Pages: `/investor` (associate → submit credential → buy), `/admin` (guarded actions),
-`/audit` (HCS timeline).
+### Frontend pages
+
+- `/investor` — guided three-step flow: **1. Associate token → 2. Verify KYC → 3. Buy
+  tokens**. Steps unlock progressively from on-chain status (`associated`,
+  `kycGranted`, `spentUsd8 > 0`) and each shows **locked** / **current** /
+  **in-progress** / **done**. Each completed step shows a success banner naming the
+  next action and links that step transaction on HashScan. The credential input
+  validates JSON live with a **Paste** button; the buy step lists what still blocks
+  a purchase.
+- `/admin` — role-gated compliance actions (`revoke-kyc`, `freeze` / `unfreeze`,
+  `pause` / `unpause`) behind the demo `ADMIN_API_TOKEN` Bearer guard. Each action is
+  pre-checked against the current on-chain state; if it is already satisfied the API
+  returns a no-op message (e.g. "This account is already frozen.") instead of sending a
+  transaction.
+- `/audit` — Mirror-Node-backed HCS timeline where each message shows a friendly
+  action label (e.g. `grantKyc` → **KYC granted**) with a color-coded badge, the
+  account / operator / transaction as HashScan links, and the copyable
+  credential-proof hash.
 
 Helper scripts (run from `packages/nextjs`):
 
@@ -310,6 +330,13 @@ yarn workspace @sh/nextjs audit:create-topic                    # create the HCS
 yarn workspace @sh/nextjs credential:issue                      # print a signed credential for the env investor address
 yarn workspace @sh/nextjs credential:issue --address 0x...      # ...or for an explicit address
 ```
+
+The helper scripts load `packages/nextjs/.env.local` automatically (`credential:issue` also
+reads `packages/hardhat/.env`), so there is nothing to export first. `credential:issue`
+signs with the issuer key and **prints the credential to stdout without writing anything**;
+it resolves the subject from `--address`, else `INVESTOR_ADDRESS`, else the address derived
+from `INVESTOR_PRIVATE_KEY`. Paste the JSON into the credential box on `/investor` — its
+`subject` must equal the connected wallet.
 
 ## Testing and where MockHTS differs
 
@@ -361,13 +388,14 @@ Highlights from the recorded run (testnet):
 
 ## Developer commands
 
-| Command | What it does |
-| --- | --- |
-| `yarn doctor` | Read-only checklist (`--json`, `--strict`); exits 0 only when READY. |
-| `yarn setup` | Interactive, idempotent, secret-safe credential setup. |
-| `yarn deploy:testnet` | Resumable deploy (contracts, token, roles, topic, issuer DID). |
-| `yarn proof` | Runs the live proof and writes `docs/testnet-proof.md`. |
-| `yarn dev` | Start the Next.js app. |
+| Command                                      | What it does                                                             |
+| -------------------------------------------- | ------------------------------------------------------------------------ |
+| `yarn doctor`                                | Read-only checklist (`--json`, `--strict`); exits 0 only when READY.     |
+| `yarn setup`                                 | Interactive, idempotent, secret-safe credential setup.                   |
+| `yarn deploy:testnet`                        | Resumable deploy (contracts, token, roles, topic, issuer DID).           |
+| `yarn proof`                                 | Runs the live proof and writes `docs/testnet-proof.md`.                  |
+| `yarn workspace @sh/nextjs credential:issue` | Prints a signed investor credential for the env subject; writes nothing. |
+| `yarn dev`                                   | Start the Next.js app.                                                   |
 
 ## Troubleshooting
 

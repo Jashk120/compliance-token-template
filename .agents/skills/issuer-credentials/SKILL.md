@@ -34,9 +34,9 @@ Direct the user to `yarn setup` rather than editing env files by hand. It is int
 
 ## Where credentials live
 
-| File | Variables |
-| --- | --- |
-| `packages/hardhat/.env` | `DEPLOYER_PRIVATE_KEY` or `DEPLOYER_PRIVATE_KEY_ENCRYPTED`, `INVESTOR_PRIVATE_KEY` |
+| File                         | Variables                                                                                                                                                                  |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/hardhat/.env`      | `DEPLOYER_PRIVATE_KEY` or `DEPLOYER_PRIVATE_KEY_ENCRYPTED`, `INVESTOR_PRIVATE_KEY`                                                                                         |
 | `packages/nextjs/.env.local` | `HEDERA_OPERATOR_ID`, `HEDERA_OPERATOR_PRIVATE_KEY`, `ISSUER_DID_PRIVATE_KEY`, `ISSUER_DID` / `ISSUER_PUBLIC_KEY`, `ADMIN_API_TOKEN`, `AUDIT_TOPIC_ID`, contract addresses |
 
 Both files are git-ignored. The deployer key must never appear under `packages/nextjs/` and no secret may use a `NEXT_PUBLIC_` prefix — doctor reports both as UNSAFE.
@@ -47,3 +47,12 @@ Both files are git-ignored. The deployer key must never appear under `packages/n
 - **Reduced**: only `ISSUER_PUBLIC_KEY` is set. A documented fallback when registration is unavailable; it is never faked.
 
 Run `yarn doctor` to see which mode is active.
+
+## Issuing an investor credential
+
+`yarn workspace @sh/nextjs credential:issue` prints a credential signed by the issuer key
+(`ISSUER_DID_PRIVATE_KEY`). The subject resolves from `--address`, else `INVESTOR_ADDRESS`,
+else the address derived from `INVESTOR_PRIVATE_KEY` (in `packages/hardhat/.env`). It loads
+both env files automatically and writes nothing to disk. Paste the JSON into the credential
+box on `/investor`; the `subject` must equal the connected wallet or the API rejects it with
+`CREDENTIAL_SUBJECT_MISMATCH`.

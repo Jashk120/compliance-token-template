@@ -22,26 +22,31 @@ Code loads it through `CLAUDE.md`.
 Task-focused guidance lives in `.agents/skills/` (mirrored into `.claude/skills/`).
 Load the one that matches the task:
 
-| Skill | Use when |
-| --- | --- |
-| [`issuer-credentials`](.agents/skills/issuer-credentials/SKILL.md) | configuring/validating deployer, operator, issuer or admin credentials; anything about secrets or `yarn setup`/`yarn doctor` |
-| [`deploy-and-proof`](.agents/skills/deploy-and-proof/SKILL.md) | deploying to testnet, creating the token/topic, granting roles, registering the DID, running `yarn proof` |
-| [`extending-compliance`](.agents/skills/extending-compliance/SKILL.md) | adding a role, an HCS/admin action, swapping the price feed, or adding a compliance rule |
-| [`troubleshooting`](.agents/skills/troubleshooting/SKILL.md) | a command errors or the app misbehaves |
-| `solidity-security` | writing or auditing contracts |
+| Skill                                                                  | Use when                                                                                                                     |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| [`issuer-credentials`](.agents/skills/issuer-credentials/SKILL.md)     | configuring/validating deployer, operator, issuer or admin credentials; anything about secrets or `yarn setup`/`yarn doctor` |
+| [`deploy-and-proof`](.agents/skills/deploy-and-proof/SKILL.md)         | deploying to testnet, creating the token/topic, granting roles, registering the DID, running `yarn proof`                    |
+| [`extending-compliance`](.agents/skills/extending-compliance/SKILL.md) | adding a role, an HCS/admin action, swapping the price feed, or adding a compliance rule                                     |
+| [`troubleshooting`](.agents/skills/troubleshooting/SKILL.md)           | a command errors or the app misbehaves                                                                                       |
+| `solidity-security`                                                    | writing or auditing contracts                                                                                                |
 
 Scaffold-HBAR installs the upstream Hedera skills with `--skip-hedera-skills` to opt out.
 
 ## Developer experience commands
 
-| Command | What it does |
-| --- | --- |
-| `yarn doctor` | Read-only checklist (`--json`, `--strict`); exits 0 only when READY. |
-| `yarn setup` | Interactive, idempotent, secret-safe credential setup. |
-| `yarn deploy:testnet` | Resumable deploy: contracts, token, roles, audit topic, issuer DID → `packages/nextjs/.env.local`. |
-| `yarn proof` | Runs the live proof, writes `packages/hardhat/docs/testnet-proof.md`. |
+| Command                                      | What it does                                                                                                     |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `yarn doctor`                                | Read-only checklist (`--json`, `--strict`); exits 0 only when READY.                                             |
+| `yarn setup`                                 | Interactive, idempotent, secret-safe credential setup.                                                           |
+| `yarn deploy:testnet`                        | Resumable deploy: contracts, token, roles, audit topic, issuer DID → `packages/nextjs/.env.local`.               |
+| `yarn proof`                                 | Runs the live proof, writes `packages/hardhat/docs/testnet-proof.md`.                                            |
+| `yarn workspace @sh/nextjs credential:issue` | Prints a signed investor credential (`--address` → `INVESTOR_ADDRESS` → `INVESTOR_PRIVATE_KEY`); writes nothing. |
 
 The documented order is `yarn setup` → `yarn doctor` → `yarn deploy:testnet` → `yarn dev`.
+
+The helper scripts (`issuer:register`, `audit:create-topic`, `credential:issue`) load
+`packages/nextjs/.env.local` automatically; `credential:issue` also reads
+`packages/hardhat/.env`.
 
 ## Prerequisites (from zero)
 
@@ -78,6 +83,11 @@ deployed `MockHTS` instead of the `0x167` precompile. Contract tests run offline
 
 Use the package manager this project was created with (`packageManager` in the root
 `package.json`, or the lockfile). Examples use `yarn`.
+
+The frontend drives `/investor` as a guided **associate → verify → buy** stepper. `/admin`
+pre-checks each action against on-chain state and returns a no-op message when the action is
+already satisfied; `/audit` renders the HCS timeline with friendly action labels and
+HashScan links.
 
 ## Commands
 
@@ -129,11 +139,11 @@ alias; add `"use client"` for hook-using pages.
 
 ## Style
 
-| Style | Use |
-| --- | --- |
-| `UpperCamelCase` | types, components |
-| `lowerCamelCase` | variables, functions |
-| `CONSTANT_CASE` | constants |
-| `snake_case` | Hardhat deploy files and Foundry scripts |
+| Style            | Use                                      |
+| ---------------- | ---------------------------------------- |
+| `UpperCamelCase` | types, components                        |
+| `lowerCamelCase` | variables, functions                     |
+| `CONSTANT_CASE`  | constants                                |
+| `snake_case`     | Hardhat deploy files and Foundry scripts |
 
 Prefer `type` over `interface`. No `T` prefix on types. Comments should add information.

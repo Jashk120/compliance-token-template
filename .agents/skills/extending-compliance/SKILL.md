@@ -21,7 +21,8 @@ Read the existing files before changing them; every change here is load-bearing.
 2. Add the operator call in `packages/nextjs/services/compliance/complianceService.ts` (`runComplianceAction` publishes the HCS audit message automatically via `submitAuditMessage`).
 3. If it takes an account, it is covered by `app/api/admin/[action]/route.ts`; if it is account-less, add it to `ACTIONS_WITHOUT_ACCOUNT`.
 4. Keep the `AuditMessage` shape in `utils/compliance/types.ts` and the zod schemas in `services/compliance/schemas.ts` in sync.
-5. Test via `yarn next:test`.
+5. Add the already-satisfied case to `packages/nextjs/services/compliance/adminPrecheck.ts` so the API returns a no-op message instead of a redundant transaction.
+6. Test via `yarn next:test`.
 
 ## Swap the price feed
 
