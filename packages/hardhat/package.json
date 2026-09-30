@@ -1,6 +1,7 @@
 {
   "name": "@sh/hardhat",
   "version": "0.0.1",
+  "license": "MIT",
   "scripts": {
     "account": "hardhat run scripts/listAccount.ts",
     "dx:doctor": "ts-node scripts/dx/doctor.ts",

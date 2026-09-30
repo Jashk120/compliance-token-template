@@ -84,6 +84,12 @@ export function normalizeHexKey(value: string): `0x${string}` {
   return `0x${v.toLowerCase()}` as `0x${string}`;
 }
 
+export function longZeroAddress(accountId: string): string {
+  const parts = accountId.trim().split(".");
+  const num = BigInt(parts[parts.length - 1] || "0");
+  return `0x${num.toString(16).padStart(40, "0")}`;
+}
+
 export type Ed25519KeyInfo = {
   der: string;
   rawHex: string;
