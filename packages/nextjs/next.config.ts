@@ -25,6 +25,8 @@ const nextConfig: NextConfig = {
         "node_modules/@hiero-ledger/sdk/lib/client/NodeClient.js",
       ),
       "react-native-zstd": false,
+      "react-native-quick-crypto": false,
+      "zstd-napi": false,
     };
     config.externals.push("pino-pretty", "lokijs", "encoding");
     if (dev) {
