@@ -75,10 +75,60 @@ Contracts (`packages/hardhat/.env`, copy from `.env.example`):
 | `HEDERA_RPC_URL` | Hedera JSON-RPC endpoint (testnet by default). |
 | `DEPLOYER_PRIVATE_KEY_ENCRYPTED` | Encrypted deployer key; set via `yarn hardhat:account:generate`. |
 
-Frontend (`packages/nextjs/.env`, copy from `.env.example`) uses the `NEXT_PUBLIC_*`
-and `HEDERA_*` variables listed there.
+Frontend + API (`packages/nextjs/.env.local`, copy from `.env.example`). Addresses are
+read from `packages/nextjs/contracts/deployedContracts.ts` first and fall back to env:
 
-**Never commit `.env` or private keys** — both are gitignored.
+| Variable | Purpose |
+| --- | --- |
+| `HEDERA_NETWORK` | `testnet` (default) or `mainnet`. |
+| `HEDERA_OPERATOR_ID` / `HEDERA_OPERATOR_PRIVATE_KEY` | Operator that signs compliance transactions (holds `COMPLIANCE_OFFICER_ROLE`). |
+| `ISSUER_DID` | `did:hedera` identifier whose Ed25519 key signs investor credentials. |
+| `ISSUER_DID_PRIVATE_KEY` | Issuer key, used only by `credential:issue` and `issuer:register`. |
+| `ISSUER_PUBLIC_KEY` | Optional reduced mode (see below). Unset by default. |
+| `AUDIT_TOPIC_ID` | HCS topic for the audit log (create with `audit:create-topic`). |
+| `COMPLIANCE_TOKEN_ADDRESS` / `TOKEN_SALE_ADDRESS` | Contract addresses when not in `deployedContracts.ts`. |
+| `ADMIN_API_TOKEN` | Bearer token for `/api/admin/*`. |
+
+> **Demo-grade guard.** `ADMIN_API_TOKEN` is a single shared secret compared
+> server-side; it is fine for a template but is not production authentication.
+
+> **Reduced issuer mode.** If `ISSUER_PUBLIC_KEY` is set (multibase `z...` or base58),
+> the server verifies credentials against that key instead of resolving `ISSUER_DID`.
+> This is an explicit fallback for environments where DID registration is unavailable;
+> resolution is never faked.
+
+**Never commit `.env`/`.env.local` or private keys** — both are gitignored. With no env
+file the app still boots; the pages show an explicit "Missing configuration" state.
+
+## Compliance dApp (API + pages)
+
+The documented order is: associate the token → present a signed credential → server
+verifies it at the issuer DID → the operator grants KYC through the contract → the
+investor buys through `TokenSale`. Every compliance action is published to HCS.
+
+| Page | What it does |
+| --- | --- |
+| `/investor` | Associate, submit a credential, buy HBAR with a live USD estimate and stale-price warning. |
+| `/admin` | Revoke KYC, freeze/unfreeze an account, pause/unpause the token (requires `ADMIN_API_TOKEN`). |
+| `/audit` | HCS timeline with HashScan links and an indexing-lag note. |
+
+| API route | Purpose |
+| --- | --- |
+| `POST /api/kyc/request` | Verify a credential, then grant KYC and log to HCS. |
+| `POST /api/admin/{revoke-kyc,freeze,unfreeze,pause,unpause}` | Bearer-guarded compliance actions. |
+| `GET /api/audit` | Paginated HCS messages from the Mirror Node. |
+| `GET /api/config`, `GET /api/token`, `GET /api/investor/status` | Read-only helpers for the UI. |
+
+Helper scripts (run from `packages/nextjs`):
+
+```bash
+yarn workspace @sh/nextjs issuer:register       # register the issuer did:hedera
+yarn workspace @sh/nextjs audit:create-topic     # create the HCS audit topic
+yarn workspace @sh/nextjs credential:issue --address 0x...   # sign a demo credential
+```
+
+Tests for the API layer run with `yarn next:test` (vitest).
+
 
 ## Deploy and verify on Hedera
 
