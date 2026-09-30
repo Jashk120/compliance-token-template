@@ -130,6 +130,12 @@ async function main(): Promise<void> {
     "function associateToken(address account, address token) returns (int64)",
   ]);
 
+  // Hedera rejects transactions whose gas price is below the network minimum
+  // (`eth_gasPrice`, e.g. 1.14e12 weibar on testnet). Ethers' own fee estimation can
+  // pick a value below it, so every state-changing call pins the network gas price.
+  const feeData = await ethers.provider.getFeeData();
+  const txo = feeData.gasPrice ? { gasPrice: feeData.gasPrice } : {};
+
   const priceRead = async () => {
     const [roundId, answer, , updatedAt] = await feed.latestRoundData();
     const now = BigInt(Math.floor(Date.now() / 1000));
@@ -138,6 +144,8 @@ async function main(): Promise<void> {
 
   const { price8 } = await priceRead();
   const targetUsd8 = BigInt(process.env.BUY_USD8 || "50000000"); // $0.50
+  // `buyValue` is the weibar amount sent in the JSON-RPC `value` field; the relay
+  // converts it to tinybar for the EVM (the target HBAR amount).
   const buyValue = ceilDiv(targetUsd8 * 10n ** 18n, price8);
 
   // LIVE-1: buy while not associated.
@@ -155,7 +163,7 @@ async function main(): Promise<void> {
       "associateToken",
       await ethers.provider.call({ from: investor.address, to: HTS_ADDRESS, data }),
     );
-    const tx = await investor.sendTransaction({ to: HTS_ADDRESS, data });
+    const tx = await investor.sendTransaction({ to: HTS_ADDRESS, data, ...txo });
     await tx.wait();
     record("LIVE-2 associate", "22", `staticCall rc=${rc}`, tx.hash, "via 0x167");
   } catch (err) {
@@ -168,24 +176,36 @@ async function main(): Promise<void> {
     record("LIVE-2 buy without KYC", "KycNotGranted(176)", describe(sale, err), "-", "eth_call");
   }
 
-  // LIVE-3a: grant KYC to an account that is NOT associated.
-  const stranger = ethers.Wallet.createRandom().address;
-  try {
-    await complianceAsOfficer.grantKyc.staticCall(stranger);
-    record("LIVE-3a grantKyc unassociated", "HtsCallFailed(184)", "SUCCEEDED (unexpected)", "-", "eth_call");
-  } catch (err) {
-    record(
-      "LIVE-3a grantKyc unassociated",
-      "HtsCallFailed(184)",
-      describe(complianceAsOfficer, err),
-      "-",
-      "real response code",
-    );
+  // LIVE-3a: grant KYC to an existing account that is NOT associated (real HTS
+  // resolves this to TOKEN_NOT_ASSOCIATED_TO_ACCOUNT, 184), plus a nonexistent
+  // address which resolves to INVALID_ACCOUNT_ID (15).
+  for (const [label, account] of [
+    ["LIVE-3a grantKyc unassociated", officer.address],
+    ["LIVE-3a2 grantKyc nonexistent", ethers.Wallet.createRandom().address],
+  ] as const) {
+    try {
+      await complianceAsOfficer.grantKyc.staticCall(account);
+      record(
+        label,
+        label.endsWith("nonexistent") ? "HtsCallFailed(15)" : "HtsCallFailed(184)",
+        "SUCCEEDED (unexpected)",
+        "-",
+        "eth_call",
+      );
+    } catch (err) {
+      record(
+        label,
+        label.endsWith("nonexistent") ? "HtsCallFailed(15)" : "HtsCallFailed(184)",
+        describe(complianceAsOfficer, err),
+        "-",
+        "real response code",
+      );
+    }
   }
 
   // LIVE-3b: grant KYC to the associated investor.
   try {
-    const tx = await complianceAsOfficer.grantKyc(investor.address);
+    const tx = await complianceAsOfficer.grantKyc(investor.address, txo);
     await tx.wait();
     record("LIVE-3b grantKyc associated", "success", "success", tx.hash);
   } catch (err) {
@@ -199,7 +219,7 @@ async function main(): Promise<void> {
   let tokensReceived = 0n;
   try {
     const before = await erc20.balanceOf(investor.address);
-    const tx = await sale.buy({ value: buyValue });
+    const tx = await sale.buy({ value: buyValue, ...txo });
     await tx.wait();
     const after = await erc20.balanceOf(investor.address);
     tokensReceived = BigInt(after) - BigInt(before);
@@ -228,23 +248,23 @@ async function main(): Promise<void> {
 
   // LIVE-6: freeze -> 165, unfreeze; pause -> 265, unpause.
   try {
-    await (await complianceAsOfficer.freeze(investor.address)).wait();
+    await (await complianceAsOfficer.freeze(investor.address, txo)).wait();
     try {
       await sale.buy.staticCall({ value: buyValue });
       record("LIVE-6 frozen buy", "Frozen(165)", "SUCCEEDED (unexpected)", "-", "eth_call");
     } catch (err) {
       record("LIVE-6 frozen buy", "Frozen(165)", describe(sale, err), "-", "eth_call");
     }
-    await (await complianceAsOfficer.unfreeze(investor.address)).wait();
+    await (await complianceAsOfficer.unfreeze(investor.address, txo)).wait();
 
-    await (await complianceAsOfficer.pause()).wait();
+    await (await complianceAsOfficer.pause(txo)).wait();
     try {
       await sale.buy.staticCall({ value: buyValue });
       record("LIVE-6 paused buy", "Paused(265)", "SUCCEEDED (unexpected)", "-", "eth_call");
     } catch (err) {
       record("LIVE-6 paused buy", "Paused(265)", describe(sale, err), "-", "eth_call");
     }
-    await (await complianceAsOfficer.unpause()).wait();
+    await (await complianceAsOfficer.unpause(txo)).wait();
   } catch (err) {
     record("LIVE-6 freeze/pause", "success", describe(complianceAsOfficer, err), "-");
   }
@@ -286,8 +306,11 @@ async function sdkCallerProof(probeAddress?: string): Promise<void> {
     const sdk: any = await import("@hiero-ledger/sdk");
     const client = sdk.Client.forTestnet();
     client.setOperator(operatorId, sdk.PrivateKey.fromString(operatorKey));
+    const contractId = probeAddress.startsWith("0x")
+      ? sdk.ContractId.fromEvmAddress(0, 0, probeAddress)
+      : sdk.ContractId.fromString(probeAddress);
     const resp = await new sdk.ContractExecuteTransaction()
-      .setContractId(probeAddress)
+      .setContractId(contractId)
       .setGas(200000)
       .setFunction("record()")
       .execute(client);
@@ -324,11 +347,27 @@ async function recordMirrorMetadata(
       record(`DEPLOY ${label}`, "contract id", c?.contract_id ?? "unknown", "-", `${EXPLORER}/contract/${addr}`);
     }
     const token = await get(`/api/v1/tokens/${tokenAddress}`);
-    const keys = token?.keys ?? {};
+    const keyId = (k: any): string => {
+      const hex: string | undefined = typeof k === "string" ? k : k?.key;
+      if (!hex) return "-";
+      const buf = Buffer.from(hex, "hex");
+      let i = buf[0] === 0x0a ? 2 : 0;
+      if (buf[i] !== 0x18) return `raw:${hex}`;
+      i += 1;
+      let value = 0n;
+      let shift = 0n;
+      while (i < buf.length) {
+        const b = buf[i++];
+        value |= BigInt(b & 0x7f) << shift;
+        if ((b & 0x80) === 0) break;
+        shift += 7n;
+      }
+      return `0.0.${value}`;
+    };
     record(
       "DEPLOY token keys",
-      "kyc/freeze/pause/supply = ComplianceToken",
-      `kyc=${keys.kyc?.contract_id ?? "-"} freeze=${keys.freeze?.contract_id ?? "-"} pause=${keys.pause?.contract_id ?? "-"} supply=${keys.supply?.contract_id ?? "-"}`,
+      "admin/kyc/freeze/pause/supply = ComplianceToken",
+      `admin=${keyId(token?.admin_key)} kyc=${keyId(token?.kyc_key)} freeze=${keyId(token?.freeze_key)} pause=${keyId(token?.pause_key)} supply=${keyId(token?.supply_key)}`,
       "-",
       `${EXPLORER}/token/${tokenAddress}`,
     );

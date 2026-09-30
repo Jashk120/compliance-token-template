@@ -11,7 +11,7 @@ import { IHederaTokenService } from "./interfaces/IHederaTokenService.sol";
 ///         pause controls over it.
 /// @dev Design (see docs/architecture.md):
 ///      - The token is created through the HTS precompile; `treasury` is
-///        `address(this)` and the KYC, FREEZE, SUPPLY and PAUSE keys are
+///        `address(this)` and the ADMIN, KYC, FREEZE, SUPPLY and PAUSE keys are
 ///        `contractId` keys pointing at `address(this)`. Because a contractId key
 ///        authorises the contract that makes the precompile call (no proxy), only
 ///        this contract can mutate the token's compliance state.
@@ -50,8 +50,8 @@ contract ComplianceToken is AccessControl {
     /// @notice Address of the created HTS token, or zero before creation.
     address public tokenAddress;
 
-    /// @notice HBAR (in 18-decimal weibar, the unit of `msg.value`) forwarded to the
-    ///         precompile for one token creation. The precompile does not refund
+    /// @notice HBAR (in 8-decimal tinybar, the unit of Hedera's EVM `msg.value`)
+    ///         forwarded to the precompile for one token creation. The precompile does not refund
     ///         surplus value, so callers must send at least this and the contract
     ///         refunds the remainder. Admin-settable because network fees change.
     uint256 public creationFee;
@@ -94,7 +94,7 @@ contract ComplianceToken is AccessControl {
 
     /// @param initialAdmin Account granted DEFAULT_ADMIN_ROLE and COMPLIANCE_OFFICER_ROLE.
     /// @param htsAddress HTS precompile address; `address(0)` selects {DEFAULT_HTS}.
-    /// @param creationFee_ HBAR (weibar) forwarded per token creation.
+    /// @param creationFee_ HBAR (tinybar, 8 decimals) forwarded per token creation.
     constructor(address initialAdmin, address htsAddress, uint256 creationFee_) {
         if (initialAdmin == address(0)) revert ZeroAddress();
         _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
@@ -112,7 +112,9 @@ contract ComplianceToken is AccessControl {
 
     /// @notice Creates the HTS fungible token once.
     /// @dev Forwards exactly {creationFee} to the precompile and refunds the rest of
-    ///      `msg.value` to the caller (the precompile does not refund surplus).
+    ///      `msg.value` to the caller. HIP-358 requires the precompile TokenCreate fee
+    ///      (the HAPI fee plus a 20% premium) to be sent as value; the precompile does
+    ///      not refund surplus, so the contract forwards only {creationFee}.
     ///      Reverts when `initialSupply` exceeds HTS `int64`.
     /// @param name Token name.
     /// @param symbol Token symbol.
@@ -138,7 +140,7 @@ contract ComplianceToken is AccessControl {
             maxSupply: 0,
             freezeDefault: false,
             tokenKeys: _complianceKeys(),
-            expiry: IHederaTokenService.Expiry({ second: 0, autoRenewAccount: address(this), autoRenewPeriod: 0 })
+            expiry: IHederaTokenService.Expiry({ second: 0, autoRenewAccount: address(this), autoRenewPeriod: 7890000 })
         });
 
         (int64 responseCode, address createdToken) = IHederaTokenService(HTS).createFungibleToken{ value: creationFee }(
@@ -213,13 +215,16 @@ contract ComplianceToken is AccessControl {
         emit SaleTransfer(to, amount, responseCode);
     }
 
-    /// @dev Builds the KYC, FREEZE, SUPPLY and PAUSE keys, all bound to this contract.
+    /// @dev Builds the ADMIN, KYC, FREEZE, SUPPLY and PAUSE keys, all bound to this
+    ///      contract. The ADMIN key is required: HTS rejects a create whose token has
+    ///      no admin key, and it also lets the token's keys be rotated later.
     function _complianceKeys() internal view returns (IHederaTokenService.TokenKey[] memory keys) {
-        keys = new IHederaTokenService.TokenKey[](4);
-        keys[0] = _contractKey(KYC_KEY_TYPE);
-        keys[1] = _contractKey(FREEZE_KEY_TYPE);
-        keys[2] = _contractKey(SUPPLY_KEY_TYPE);
-        keys[3] = _contractKey(PAUSE_KEY_TYPE);
+        keys = new IHederaTokenService.TokenKey[](5);
+        keys[0] = _contractKey(ADMIN_KEY_TYPE);
+        keys[1] = _contractKey(KYC_KEY_TYPE);
+        keys[2] = _contractKey(FREEZE_KEY_TYPE);
+        keys[3] = _contractKey(SUPPLY_KEY_TYPE);
+        keys[4] = _contractKey(PAUSE_KEY_TYPE);
     }
 
     /// @dev A single key whose `contractId` is this contract (strict, no proxy).

@@ -32,13 +32,27 @@ The simplest design that satisfies both rules is to keep the treasury **and** th
 in the same contract:
 
 1. `ComplianceToken.createToken` creates the token with `treasury = address(this)` and
-   `KYC`, `FREEZE`, `SUPPLY` and `PAUSE` keys whose `contractId` is `address(this)`.
-   There is no proxy and no external key manager.
+   `ADMIN`, `KYC`, `FREEZE`, `SUPPLY` and `PAUSE` keys whose `contractId` is
+   `address(this)`. There is no proxy and no external key manager.
 2. The initial supply is credited to `address(this)`, so the treasury holder is the
    token contract.
 3. `TokenSale` never touches the precompile. It calls
    `ComplianceToken.saleTransfer(to, amount)`, which is gated by `SALE_OPERATOR_ROLE`
    and makes the `transferToken` precompile call with `sender = address(this)`.
+
+A token **must** have an admin key for the precompile create to succeed: a token created
+from a contract with only KYC/FREEZE/SUPPLY/PAUSE keys (no admin key) reverts without
+data. The admin key here is the contract itself, so it is used only to rotate the token's
+keys; day-to-day administration stays with `COMPLIANCE_OFFICER_ROLE`.
+
+### Paying for token creation
+
+HIP-358 charges the precompile create the HAPI `TokenCreate` fee plus a 20% premium, and
+the value is paid from the caller's HBAR (`msg.value`), not by gas. `createToken` is
+payable and forwards a `creationFee` buffer (20 HBAR); the exact cost is about $1 USD in
+HBAR (~13 HBAR at testnet prices), so the buffer covers the premium and price movement.
+The precompile does not refund surplus, so `createToken` forwards exactly `creationFee`
+and refunds any further surplus to the caller.
 
 This keeps the strict contractId key rule intact (one contract signs for its keys and
 for its treasury) while still separating sale pricing from token administration. The
@@ -64,18 +78,22 @@ The test `grants KYC to the treasury after creation` locks this in.
 
 ## Pricing and units
 
-`msg.value` inside a contract on Hedera is denominated in **18-decimal weibar**, while
-the ledger itself uses 8-decimal tinybar: `1 HBAR = 1e18 weibar = 1e8 tinybar`
-([docs](https://docs.hedera.com/evm/differences/hbar-decimals)). `TokenSale`
+`msg.value` inside a contract on Hedera is denominated in **8-decimal tinybar**,
+while the JSON-RPC relay accepts 18-decimal weibar from callers and converts to
+tinybar for the EVM: `1 HBAR = 1e18 weibar = 1e8 tinybar`
+([decimals docs](https://docs.hedera.com/evm/differences/hbar-decimals),
+[msg.value docs](https://docs.hedera.com/evm/development/deploying)). `TokenSale`
 normalises the feed to 8 decimals and converts with:
 
 ```
-usd8  = msg.value * price8 / 1e18      // 8-decimal USD
+usd8  = msg.value * price8 / 1e8      // 8-decimal USD
 tokens = usd8 * tokenUnit / tokenPriceUsd
 ```
 
 `tokenPriceUsd` is the USD (8-decimal) price of one whole token and `tokenUnit` is
-`10 ** tokenDecimals`. Rounding dust is refunded to the buyer in HBAR.
+`10 ** tokenDecimals`. Rounding dust is refunded to the buyer in HBAR. Token math
+is unchanged — only the HBAR unit moved from 18-decimal weibar to 8-decimal
+tinybar.
 
 ## Failure handling
 

@@ -18,12 +18,14 @@ import { IPriceFeed } from "./interfaces/IPriceFeed.sol";
 contract TokenSale is Ownable, ReentrancyGuard {
     /// @notice Decimals used for all USD amounts in this contract.
     uint8 public constant USD_DECIMALS = 8;
-    /// @notice `msg.value` (and thus HBAR held by this EVM contract) uses 18 decimals.
-    /// @dev Hedera exposes native HBAR to the EVM with 18 decimals ("weibar"), while
-    ///      the ledger itself uses 8 decimals (tinybar): 1 HBAR = 1e18 weibar = 1e8
-    ///      tinybar, so 1 tinybar = 1e10 weibar. Source:
+    /// @notice `msg.value` (and thus HBAR held by this EVM contract) uses 8-decimal tinybar.
+    /// @dev Hedera's EVM exposes native HBAR to the EVM in 8-decimal tinybar (the unit
+    ///      of `msg.value`), while the JSON-RPC relay accepts 18-decimal weibar from
+    ///      callers and converts: 1 HBAR = 1e18 weibar = 1e8 tinybar, so
+    ///      1 tinybar = 1e10 weibar. Sources:
     ///      https://docs.hedera.com/evm/differences/hbar-decimals
-    uint256 public constant WEIBAR_PER_HBAR = 1e18;
+    ///      https://docs.hedera.com/evm/development/deploying
+    uint256 public constant TINYBAR_PER_HBAR = 1e8;
     /// @notice Minimum accepted oracle staleness window.
     uint256 public constant MIN_STALENESS = 5 minutes;
     /// @notice Maximum accepted oracle staleness window.
@@ -60,8 +62,8 @@ contract TokenSale is Ownable, ReentrancyGuard {
         address indexed buyer,
         int64 tokenAmount,
         uint256 usdValue8,
-        uint256 hbarWei,
-        uint256 refundWei
+        uint256 hbarTinybar,
+        uint256 refundTinybar
     );
     /// @notice Emitted when the price feed is swapped.
     event PriceFeedUpdated(address indexed previousFeed, address indexed newFeed);
@@ -134,13 +136,13 @@ contract TokenSale is Ownable, ReentrancyGuard {
     function buy() external payable nonReentrant returns (int64 tokenAmount) {
         uint256 price8 = _readPrice();
 
-        uint256 usd8 = _hbarWeiToUsd8(msg.value, price8);
+        uint256 usd8 = _tinybarToUsd8(msg.value, price8);
         uint256 tokens = (usd8 * tokenUnit) / tokenPriceUsd;
         if (tokens == 0) revert ZeroTokenAmount();
         if (tokens > MAX_INT64) revert AmountExceedsInt64(tokens);
 
         uint256 cost8 = (tokens * tokenPriceUsd) / tokenUnit;
-        uint256 dustWei = _usd8ToHbarWei(usd8 - cost8, price8);
+        uint256 dustTinybar = _usd8ToTinybar(usd8 - cost8, price8);
 
         uint256 attemptedTotal = usdSpent[msg.sender] + usd8;
         if (attemptedTotal > perInvestorCapUsd) {
@@ -151,12 +153,12 @@ contract TokenSale is Ownable, ReentrancyGuard {
         tokenAmount = int64(uint64(tokens));
         _surfaceTransferError(complianceToken.saleTransfer(msg.sender, tokenAmount));
 
-        if (dustWei > 0) {
-            (bool ok, ) = msg.sender.call{ value: dustWei }("");
+        if (dustTinybar > 0) {
+            (bool ok, ) = msg.sender.call{ value: dustTinybar }("");
             if (!ok) revert RefundFailed();
         }
 
-        emit TokensPurchased(msg.sender, tokenAmount, usd8, msg.value, dustWei);
+        emit TokensPurchased(msg.sender, tokenAmount, usd8, msg.value, dustTinybar);
     }
 
     /// @notice Swaps the price feed adapter.
@@ -175,20 +177,22 @@ contract TokenSale is Ownable, ReentrancyGuard {
         maxStaleness = newMaxStaleness;
     }
 
-    /// @notice USD (8 decimals) value of `hbarWei` at `price8` (USD per HBAR, 8 decimals).
-    /// @dev Unit derivation. `msg.value` is 18-decimal weibar (1 HBAR = 1e18 weibar).
+    /// @notice USD (8 decimals) value of `tinybar` at `price8` (USD per HBAR, 8 decimals).
+    /// @dev Unit derivation. `msg.value` is 8-decimal tinybar (1 HBAR = 1e8 tinybar).
     ///      A price of `price8` is USD per HBAR scaled by 1e8. Therefore:
-    ///        HBAR     = hbarWei / 1e18
+    ///        HBAR     = tinybar / 1e8
     ///        USD      = HBAR * price8 / 1e8
-    ///        USD(8dp) = hbarWei / 1e18 * price8 = hbarWei * price8 / 1e18
-    ///      Source for the 18-decimal `msg.value`: https://docs.hedera.com/evm/differences/hbar-decimals
-    function _hbarWeiToUsd8(uint256 hbarWei, uint256 price8) internal pure returns (uint256) {
-        return (hbarWei * price8) / WEIBAR_PER_HBAR;
+    ///        USD(8dp) = tinybar / 1e8 * price8 = tinybar * price8 / 1e8
+    ///      Sources for the 8-decimal `msg.value`:
+    ///      https://docs.hedera.com/evm/differences/hbar-decimals
+    ///      https://docs.hedera.com/evm/development/deploying
+    function _tinybarToUsd8(uint256 tinybar, uint256 price8) internal pure returns (uint256) {
+        return (tinybar * price8) / TINYBAR_PER_HBAR;
     }
 
-    /// @notice Inverse of {_hbarWeiToUsd8}: HBAR weibar worth `usd8` at `price8`.
-    function _usd8ToHbarWei(uint256 usd8, uint256 price8) internal pure returns (uint256) {
-        return (usd8 * WEIBAR_PER_HBAR) / price8;
+    /// @notice Inverse of {_tinybarToUsd8}: HBAR tinybar worth `usd8` at `price8`.
+    function _usd8ToTinybar(uint256 usd8, uint256 price8) internal pure returns (uint256) {
+        return (usd8 * TINYBAR_PER_HBAR) / price8;
     }
 
     /// @dev Reads and validates the latest round, normalising to 8 decimals.
