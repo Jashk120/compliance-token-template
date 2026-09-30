@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
   },
   webpack: (config, { dev }) => {
     config.resolve.fallback = { fs: false, net: false, tls: false };
+    config.resolve.alias = {
+      ...(config.resolve.alias as Record<string, unknown>),
+      "@hiero-ledger/sdk/lib/client/NodeClient": path.resolve(
+        __dirname,
+        "node_modules/@hiero-ledger/sdk/lib/client/NodeClient.js",
+      ),
+      "react-native-zstd": false,
+    };
     config.externals.push("pino-pretty", "lokijs", "encoding");
     if (dev) {
       config.watchOptions = {
