@@ -1,0 +1,52 @@
+{
+  "name": "compliance-token",
+  "description": "HTS compliance token with KYC, freeze and pause controls, plus a Chainlink-priced USD token sale on Hedera. Hardhat contracts and a Next.js frontend.",
+  "create-scaffold-hbar": {
+    "capabilities": {
+      "frontend": ["nextjs-app"],
+      "solidityFramework": ["hardhat"],
+      "packageManager": ["yarn"]
+    },
+    "defaults": {
+      "frontend": "nextjs-app",
+      "solidityFramework": "hardhat",
+      "packageManager": "yarn"
+    },
+    "outro": {
+      "sections": [
+        {
+          "steps": [
+            {
+              "text": "This template uses Hardhat and deploys a KYC/freeze/pause compliance token plus a Chainlink-priced USD sale to Hedera testnet/mainnet."
+            }
+          ]
+        },
+        {
+          "title": "Next steps",
+          "steps": [
+            {
+              "label": "Set up deployer account",
+              "command": "{run:hardhat:account:generate}"
+            },
+            {
+              "label": "Fund your account with testnet HBAR",
+              "url": "https://portal.hedera.com/faucet"
+            },
+            {
+              "label": "Run contract tests",
+              "command": "{run:hardhat:test}"
+            },
+            {
+              "label": "Deploy contracts",
+              "command": "{run:hardhat:deploy} --network hederaTestnet"
+            },
+            {
+              "label": "Start the frontend",
+              "command": "{run:next:start}"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

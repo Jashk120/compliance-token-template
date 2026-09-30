@@ -26,6 +26,18 @@ const hederaRpcUrl = process.env.HEDERA_RPC_URL || "https://testnet.hashio.io/ap
 const deployerPrivateKey =
   process.env.__RUNTIME_DEPLOYER_PRIVATE_KEY ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
+// Only fork Hedera testnet when explicitly requested (yarn hardhat:chain / hardhat:fork).
+// Unit tests run on the ordinary in-process Hardhat network so they need no network
+// access and are deterministic.
+const hardhatNetworkConfig: Record<string, unknown> = {};
+if (process.env.HEDERA_FORKING === "true") {
+  hardhatNetworkConfig.forking = {
+    url: hederaRpcUrl,
+    chainId: 296,
+    workerPort: 10001,
+  };
+}
+
 const config: HardhatUserConfig = {
   solidity: {
     compilers: [
@@ -47,14 +59,7 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    hardhat: {
-      forking: {
-        url: hederaRpcUrl,
-        // @ts-expect-error - custom property for hedera-forking plugin
-        chainId: 296,
-        workerPort: 10001,
-      },
-    },
+    hardhat: hardhatNetworkConfig,
     hederaTestnet: {
       url: "https://testnet.hashio.io/api",
       accounts: [deployerPrivateKey],

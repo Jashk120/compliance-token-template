@@ -1,78 +1,107 @@
-# Scaffold-HBAR — Blank starter
+# Scaffold-HBAR — Compliance Token
 
-Minimal Hedera dApp baseline: Next.js, Hardhat or Foundry, and Hedera networks (testnet, mainnet, local fork). No opinionated product UI — you add the app on top.
+A Scaffold-HBAR template for issuing a Hedera Token Service (HTS) **compliance
+token** and selling it for HBAR at a fixed USD price.
 
-CLI key: `blank` (branch `templates/blank-template`).
-
-The full product guide — CLI flags, npm vs Yarn, deploy, and verify — lives in [Scaffold HBAR on Hedera docs](https://docs.hedera.com/solutions/tools/scaffold-hbar/index). This README is what is specific to **this** template.
-
-## What's in this template
-
-- Next.js App Router with wallet connect, **Debug Contracts**, and a local block explorer
-- Sample HTS contracts (`HederaToken`, `HtsTokenCreator`) so Debug Contracts has something to call
-- Hardhat and Foundry packages (the CLI can drop one)
-- Hashio RPC + Mirror Node config for Hedera testnet and mainnet
-- Package manager: Yarn (recommended) or npm — see `template.json`
+The token's KYC, freeze, supply and pause keys are bound to the deploying contract, so
+compliance state can only be changed by that contract. The sale prices tokens from a
+[Chainlink HBAR/USD price feed](https://docs.chain.link/data-feeds/price-feeds/addresses?network=hedera)
+and enforces a per-investor USD cap.
 
 Create a project from this template:
 
 ```bash
-npm create scaffold-hbar@latest -- --template blank
+npm create scaffold-hbar@latest -- --template <owner>/<this-repo>
 ```
 
-`npx create-scaffold-hbar@latest --template blank` is equivalent. The CLI also asks for frontend, Solidity framework, network, and package manager.
+## What's in this template
 
-## Work from this repository
+- `ComplianceToken` — creates the HTS fungible token with `treasury = address(this)`
+  and `KYC`, `FREEZE`, `SUPPLY`, `PAUSE` keys as `contractId` keys, then exposes
+  role-gated `grantKyc` / `revokeKyc` / `freeze` / `unfreeze` / `pause` / `unpause`.
+- `TokenSale` — buys tokens with HBAR using a Chainlink HBAR/USD feed, with a
+  per-investor USD cap, oracle staleness/round checks, dust refunds and a reentrancy
+  guard.
+- `ChainlinkPriceFeedAdapter` — swappable `IPriceFeed` wrapper around a Chainlink
+  aggregator.
+- `MockHTS` / `MockChainlinkAggregator` — local stand-ins for the `0x167` precompile
+  and a price feed.
+- Next.js App Router frontend (wallet connect, Debug Contracts, block explorer).
 
-This branch uses Yarn workspaces, so clone-and-run needs Yarn. Apps created with the CLI can use Yarn (default) or npm; see the [docs](https://docs.hedera.com/solutions/tools/scaffold-hbar/index).
+See [`packages/hardhat/docs/architecture.md`](packages/hardhat/docs/architecture.md)
+for the treasury/key design and unit handling.
 
-### Prerequisites
+## Prerequisites
 
 - [Node.js](https://nodejs.org/) ≥ 20.18.3
-- [Git](https://git-scm.com/) with `user.name` and `user.email` configured
-- [Yarn](https://yarnpkg.com/) (default; required if you clone this repo) or npm if you scaffolded with the CLI. For Yarn, install via Corepack:
-  ```bash
-  corepack enable && corepack prepare yarn@stable --activate
-  ```
-- **If using Foundry:** [Foundry](https://book.getfoundry.sh/getting-started/installation) (`forge`, `cast`, `anvil`)
+- [Yarn](https://yarnpkg.com/) via Corepack: `corepack enable && corepack prepare yarn@3.2.3 --activate`
+- A funded Hedera testnet account for live deploys ([faucet](https://portal.hedera.com/faucet))
 
-### Quick start
+## Quick start
 
 ```bash
 yarn install
 
-# Terminal 1: local Hedera-forked node
+# Terminal 1: local Hedera node
 yarn hardhat:chain
 
-# Terminal 2: deploy to that node (8545)
+# Terminal 2: deploy + create the token locally
 yarn hardhat:deploy --network localhost
 
-# Terminal 3: Next.js app
-yarn next:start
-```
-
-Open [http://localhost:3000](http://localhost:3000) and use the **Debug Contracts** page.
-
-Frontend only (no local chain):
-
-```bash
-yarn install
+# Terminal 3: frontend
 yarn next:dev
 ```
 
-`yarn hardhat:deploy` without `--network localhost` targets the in-process `hardhat` network, not the long-running fork. Local Hardhat and Foundry workflows are in [`packages/hardhat/README.md`](packages/hardhat/README.md) and [`packages/foundry/README.md`](packages/foundry/README.md). Deploy and verify on testnet/mainnet: [Hedera docs](https://docs.hedera.com/solutions/tools/scaffold-hbar/index#deploying-to-testnet).
+Open http://localhost:3000 and use the **Debug Contracts** page.
+
+## Contracts, tests and lint
+
+```bash
+yarn hardhat:compile
+yarn hardhat:test    # 29 unit tests against MockHTS / MockChainlinkAggregator
+yarn lint
+```
+
+Contract tests run on the in-process Hardhat network using the mocks — no network
+access required. `yarn hardhat:test:forking` runs the same suite against a forked
+Hedera testnet.
+
+## Environment variables
+
+Contracts (`packages/hardhat/.env`, copy from `.env.example`):
+
+| Variable | Purpose |
+| --- | --- |
+| `HEDERA_RPC_URL` | Hedera JSON-RPC endpoint (testnet by default). |
+| `DEPLOYER_PRIVATE_KEY_ENCRYPTED` | Encrypted deployer key; set via `yarn hardhat:account:generate`. |
+
+Frontend (`packages/nextjs/.env`, copy from `.env.example`) uses the `NEXT_PUBLIC_*`
+and `HEDERA_*` variables listed there.
+
+**Never commit `.env` or private keys** — both are gitignored.
+
+## Deploy and verify on Hedera
+
+```bash
+yarn hardhat:account:generate          # create + fund the deployer
+yarn hardhat:deploy --network hederaTestnet
+yarn hardhat:verify:testnet
+```
+
+The price feed resolves automatically per network: Chainlink HBAR/USD on
+[testnet](https://docs.chain.link/data-feeds/price-feeds/addresses?network=hedera)
+(`0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a`) or mainnet
+(`0xAF685FB45C12b92b5054ccb9313e135525F9b5d5`).
 
 ## Project layout
 
-- **packages/hardhat** — Hardhat config, contracts, `deploy/` scripts, tests
-- **packages/foundry** — Forge config, contracts, `script/` deploy scripts, tests
-- **packages/nextjs** — Next.js app, RainbowKit, wagmi, scaffold config
-
-Network and RPC URLs are in `packages/hardhat/hardhat.config.ts` and `packages/foundry/foundry.toml` respectively.
+- `packages/hardhat` — Hardhat config, contracts, `deploy/` scripts, tests
+- `packages/nextjs` — Next.js app (RainbowKit, wagmi, scaffold config)
 
 ## Links
 
 - [Scaffold HBAR docs](https://docs.hedera.com/solutions/tools/scaffold-hbar/index)
-- [create-scaffold-hbar](https://github.com/hedera-dev/create-scaffold-hbar) — CLI
-- [Hedera Portal faucet](https://portal.hedera.com/faucet)
+- [HTS system contract](https://docs.hedera.com/evm/hedera-services/system-contracts/hts)
+- [HBAR decimals](https://docs.hedera.com/evm/differences/hbar-decimals)
+- [HTS KYC tutorial](https://docs.hedera.com/evm/tutorials/hedera/hts-evm/part2-kyc-update)
 - [HashScan](https://hashscan.io/)

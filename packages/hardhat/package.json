@@ -16,7 +16,8 @@
     "format": "prettier --write './**/*.(ts|sol)'",
     "lint": "eslint",
     "lint-staged": "eslint",
-    "test": "HEDERA_FORKING=true REPORT_GAS=true hardhat test",
+    "test": "REPORT_GAS=true hardhat test",
+    "test:forking": "HEDERA_FORKING=true REPORT_GAS=true hardhat test",
     "verify": "hardhat verify",
     "verify:testnet": "hardhat verify --network hederaTestnet",
     "verify:mainnet": "hardhat verify --network hederaMainnet"

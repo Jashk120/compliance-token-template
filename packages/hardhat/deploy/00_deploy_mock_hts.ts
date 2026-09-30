@@ -3,20 +3,23 @@ import type { DeployFunction } from "hardhat-deploy/types";
 
 import { getDeployGasPrice } from "../utils/getDeployGasPrice";
 
-const deployHtsTokenCreator: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
+const deployMockHts: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
+  if (hre.network.name !== "hardhat" && hre.network.name !== "localhost") {
+    return;
+  }
+
   const { deployer } = await hre.getNamedAccounts();
   const { deploy } = hre.deployments;
 
-  await deploy("HtsTokenCreator", {
+  await deploy("MockHTS", {
     from: deployer,
     args: [],
     log: true,
     autoMine: true,
-    gasLimit: "3000000",
+    gasLimit: "5000000",
     gasPrice: await getDeployGasPrice(hre),
   });
 };
 
-deployHtsTokenCreator.tags = ["HtsTokenCreator"];
-deployHtsTokenCreator.dependencies = ["HederaToken"];
-export default deployHtsTokenCreator;
+deployMockHts.tags = ["MockHTS"];
+export default deployMockHts;

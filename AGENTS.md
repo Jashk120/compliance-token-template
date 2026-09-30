@@ -4,6 +4,20 @@ Briefing for coding agents in this app (Cursor, Claude Code, Codex). Claude Code
 
 This is a Scaffold-HBAR dApp: Next.js App Router, wallet connect, Debug Contracts, and Hedera networks (testnet, mainnet, local fork). The CLI may have left only Hardhat or only Foundry.
 
+## This template (Compliance Token)
+
+The Solidity package here is `packages/hardhat`. Contracts:
+
+- `ComplianceToken` — creates the HTS fungible token with `treasury = address(this)` and
+  KYC/FREEZE/SUPPLY/PAUSE `contractId` keys, and exposes role-gated compliance controls.
+- `TokenSale` — Chainlink HBAR/USD-priced sale with a per-investor USD cap.
+- `ChainlinkPriceFeedAdapter`, plus `MockHTS` / `MockChainlinkAggregator` in `contracts/test`.
+
+The HTS address is injected through the `ComplianceToken` constructor, so tests pass a
+deployed `MockHTS` instead of the `0x167` precompile. Contract tests run offline
+(`yarn hardhat:test`); see `packages/hardhat/docs/architecture.md` for the treasury/key
+design and the weibar/tinybar unit handling.
+
 Use the package manager this project was created with (`packageManager` in the root `package.json`, or the lockfile). Examples use `yarn`; if the app was created with npm, swap `yarn <script>` for `npm run <script>`.
 
 ## Which Solidity package
