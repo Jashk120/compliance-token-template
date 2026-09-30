@@ -14,5 +14,5 @@ export default function AuditPage() {
       />
     );
   }
-  return <AuditClient />;
+  return <AuditClient network={config.network} />;
 }

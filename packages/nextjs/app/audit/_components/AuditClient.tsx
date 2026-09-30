@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowTopRightOnSquareIcon,
   CheckCircleIcon,
@@ -18,7 +18,8 @@ import { describeError } from "~~/utils/compliance/clientErrors";
 import { shortAddress } from "~~/utils/compliance/format";
 import type { AuditEntry } from "~~/utils/compliance/types";
 
-const HASHSCAN_TESTNET = "https://hashscan.io/testnet";
+const PAGE_SIZE = 25;
+const REFRESH_INTERVAL_MS = 10_000;
 
 const ACTION_LABELS: Record<string, string> = {
   grantKyc: "KYC granted",
@@ -75,9 +76,13 @@ function actionIcon(action: string): HeroIcon {
   return ACTION_ICONS[action] ?? InformationCircleIcon;
 }
 
-function accountUrl(account: string): string | null {
+function entryKey(entry: AuditEntry): string {
+  return `${entry.sequenceNumber}-${entry.txId}`;
+}
+
+function accountUrl(scanBase: string, account: string): string | null {
   if (HEDERA_ID_PATTERN.test(account) || EVM_ADDRESS_PATTERN.test(account)) {
-    return `${HASHSCAN_TESTNET}/account/${encodeURIComponent(account)}`;
+    return `${scanBase}/account/${encodeURIComponent(account)}`;
   }
   return null;
 }
@@ -87,6 +92,14 @@ function displayAccount(account: string): string {
     return account;
   }
   return shortAddress(account, 6);
+}
+
+function formatTimestamp(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return iso;
+  }
+  return date.toLocaleString();
 }
 
 function CopyHashButton({ value }: { value: string }) {
@@ -119,23 +132,25 @@ function CopyHashButton({ value }: { value: string }) {
   );
 }
 
-function AuditEntryCard({ entry }: { entry: AuditEntry }) {
+function AuditEntryCard({ entry, scanBase }: { entry: AuditEntry; scanBase: string }) {
   const label = humanizeAction(entry.action);
   const badgeClass = actionBadgeClass(entry.action);
   const Icon = actionIcon(entry.action);
-  const accountHref = accountUrl(entry.account);
-  const operatorHref = accountUrl(entry.operator);
-  const txHref = `${HASHSCAN_TESTNET}/transaction/${encodeURIComponent(entry.txId)}`;
+  const accountHref = accountUrl(scanBase, entry.account);
+  const operatorHref = accountUrl(scanBase, entry.operator);
+  const txHref = `${scanBase}/transaction/${encodeURIComponent(entry.txId)}`;
 
   return (
     <div className="card bg-base-100 shadow">
       <div className="card-body gap-2 p-4">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <span className={`badge ${badgeClass} gap-1 whitespace-nowrap`}>
             <Icon className="h-3.5 w-3.5" aria-hidden="true" />
             {label}
           </span>
-          <time className="text-base-content/50 text-xs whitespace-nowrap shrink-0">{entry.timestamp}</time>
+          <time className="text-base-content/50 text-xs" title={entry.timestamp}>
+            {formatTimestamp(entry.timestamp)}
+          </time>
         </div>
         <div className="flex flex-col gap-1 text-xs">
           <div className="flex flex-wrap items-center gap-x-2">
@@ -205,18 +220,28 @@ function AuditEntryCard({ entry }: { entry: AuditEntry }) {
   );
 }
 
-export function AuditClient() {
+export function AuditClient({ network }: { network: "testnet" | "mainnet" }) {
+  const scanBase = network === "mainnet" ? "https://hashscan.io/mainnet" : "https://hashscan.io/testnet";
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [nextAfter, setNextAfter] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
-  const load = useCallback(async (after?: number) => {
+  const entriesRef = useRef<AuditEntry[]>([]);
+  entriesRef.current = entries;
+  const loadingMoreRef = useRef(false);
+  loadingMoreRef.current = loadingMore;
+
+  // Full reset to the first (newest) page.
+  const loadFirstPage = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await fetchAudit(25, after);
-      setEntries(previous => (after ? [...previous, ...result.entries] : result.entries));
+      const result = await fetchAudit(PAGE_SIZE);
+      setEntries(result.entries);
       setNextAfter(result.nextAfter);
+      setUpdatedAt(new Date());
       setError(null);
     } catch (caught) {
       setError(describeError(caught));
@@ -225,20 +250,97 @@ export function AuditClient() {
     }
   }, []);
 
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const result = await fetchAudit(PAGE_SIZE, nextAfter ?? undefined);
+      setEntries(previous => {
+        const seen = new Set(previous.map(entryKey));
+        const older = result.entries.filter(entry => {
+          const key = entryKey(entry);
+          if (seen.has(key)) {
+            return false;
+          }
+          seen.add(key);
+          return true;
+        });
+        return [...previous, ...older];
+      });
+      setNextAfter(result.nextAfter);
+      setError(null);
+    } catch (caught) {
+      setError(describeError(caught));
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [nextAfter]);
+
+  // Merge a refreshed first page on top without dropping older loaded pages.
+  const refreshNewest = useCallback(async () => {
+    if (document.visibilityState !== "visible" || loadingMoreRef.current) {
+      return;
+    }
+    try {
+      const result = await fetchAudit(PAGE_SIZE);
+      const previous = entriesRef.current;
+      if (previous.length > result.entries.length) {
+        const seen = new Set(previous.map(entryKey));
+        const fresh = result.entries.filter(entry => !seen.has(entryKey(entry)));
+        if (fresh.length > 0) {
+          setEntries([...fresh, ...previous]);
+          setUpdatedAt(new Date());
+        }
+      } else {
+        const seen = new Set(result.entries.map(entryKey));
+        const keptOlder = previous.filter(entry => !seen.has(entryKey(entry)));
+        setEntries([...result.entries, ...keptOlder]);
+        setNextAfter(result.nextAfter);
+        setUpdatedAt(new Date());
+      }
+      setError(null);
+    } catch {
+      // Keep showing stale entries on background refresh failures.
+    }
+  }, []);
+
   useEffect(() => {
-    load();
-  }, [load]);
+    loadFirstPage();
+  }, [loadFirstPage]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void refreshNewest();
+    }, REFRESH_INTERVAL_MS);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refreshNewest();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refreshNewest]);
 
   return (
     <div className="flex flex-col items-center grow gap-6 px-4 py-10">
-      <div className="flex w-full max-w-3xl items-end justify-between">
+      <div className="flex w-full max-w-3xl items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Audit log</h1>
           <p className="text-base-content/70 text-sm">
             Every compliance action is published to Hedera Consensus Service.
           </p>
+          {updatedAt ? (
+            <p className="text-base-content/50 text-xs mt-1">Updated {updatedAt.toLocaleTimeString()}</p>
+          ) : null}
         </div>
-        <button className="btn btn-sm" onClick={() => load()} disabled={loading}>
+        <button
+          className="btn btn-sm shrink-0"
+          onClick={() => loadFirstPage()}
+          disabled={loading}
+          aria-label="Refresh audit log"
+        >
           {loading ? <span className="loading loading-spinner loading-xs" /> : "Refresh"}
         </button>
       </div>
@@ -261,24 +363,33 @@ export function AuditClient() {
             </div>
           </div>
         ) : (
-          <ul className="timeline timeline-vertical timeline-snap-icon">
-            {entries.map(entry => (
-              <li key={`${entry.sequenceNumber}-${entry.txId}`}>
-                <div className="timeline-middle">
-                  <span className={`badge ${actionBadgeClass(entry.action)} badge-xs`} aria-hidden="true" />
-                </div>
-                <div className="timeline-end mb-6 w-full">
-                  <AuditEntryCard entry={entry} />
-                </div>
-              </li>
-            ))}
+          <ul className="flex flex-col">
+            {entries.map((entry, index) => {
+              const isLast = index === entries.length - 1;
+              return (
+                <li key={entryKey(entry)} className="flex gap-3">
+                  <div className="flex w-5 shrink-0 flex-col items-center" aria-hidden="true">
+                    <span className="badge badge-primary badge-xs mt-5 h-2.5 w-2.5 p-0" />
+                    {isLast ? null : <span className="w-px grow bg-base-300" />}
+                  </div>
+                  <div className="grow min-w-0 pb-5">
+                    <AuditEntryCard entry={entry} scanBase={scanBase} />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
 
-      {nextAfter !== null ? (
-        <button className="btn btn-outline btn-sm" onClick={() => load(nextAfter)} disabled={loading}>
-          Load more
+      {nextAfter !== null && entries.length > 0 ? (
+        <button
+          className="btn btn-outline btn-sm"
+          onClick={() => loadMore()}
+          disabled={loadingMore}
+          aria-label="Load more audit entries"
+        >
+          {loadingMore ? <span className="loading loading-spinner loading-xs" /> : "Load more"}
         </button>
       ) : null}
     </div>

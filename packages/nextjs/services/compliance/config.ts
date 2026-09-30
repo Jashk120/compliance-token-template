@@ -85,6 +85,26 @@ export function getServerConfig(): ServerConfig {
   };
 }
 
+// Audit needs only a topic id and a mirror URL, so it stays usable without operator/issuer credentials.
+export type AuditConfig = {
+  network: HederaNetwork;
+  mirrorBaseUrl: string;
+  auditTopicId: string;
+};
+
+export function getAuditConfig(): AuditConfig {
+  const network = activeNetwork();
+  const auditTopicId = clean(process.env.AUDIT_TOPIC_ID);
+  if (!auditTopicId) {
+    throw new ConfigurationError(["AUDIT_TOPIC_ID"]);
+  }
+  return {
+    network,
+    mirrorBaseUrl: clean(process.env.HEDERA_MIRROR_URL) ?? MIRROR_BASE[network],
+    auditTopicId,
+  };
+}
+
 export function requireAdminToken(): string {
   const token = clean(process.env.ADMIN_API_TOKEN);
   if (!token) {

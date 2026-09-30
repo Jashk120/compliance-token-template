@@ -61,10 +61,10 @@ export function submitCredential(
   });
 }
 
-export function fetchAudit(limit = 25, after?: number): Promise<{ entries: AuditEntry[]; nextAfter: number | null }> {
+export function fetchAudit(limit = 25, before?: number): Promise<{ entries: AuditEntry[]; nextAfter: number | null }> {
   const params = new URLSearchParams({ limit: String(limit) });
-  if (after !== undefined) {
-    params.set("after", String(after));
+  if (before !== undefined) {
+    params.set("before", String(before));
   }
   return request(`/api/audit?${params.toString()}`);
 }

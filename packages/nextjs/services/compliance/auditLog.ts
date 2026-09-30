@@ -1,4 +1,4 @@
-import { getServerConfig } from "./config";
+import { getAuditConfig, getServerConfig } from "./config";
 import { UpstreamError } from "./errors";
 import { getOperatorClient } from "./hederaClient";
 import { auditMessageSchema } from "./schemas";
@@ -55,7 +55,7 @@ export async function submitAuditMessage(message: AuditMessage): Promise<string>
 }
 
 async function fetchPage(pathOrUrl: string): Promise<MirrorPage> {
-  const { mirrorBaseUrl } = getServerConfig();
+  const { mirrorBaseUrl } = getAuditConfig();
   const url = pathOrUrl.startsWith("http") ? pathOrUrl : `${mirrorBaseUrl}${pathOrUrl}`;
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) {
@@ -65,13 +65,13 @@ async function fetchPage(pathOrUrl: string): Promise<MirrorPage> {
 }
 
 export async function fetchAuditEntries(
-  options: { limit?: number; after?: number } = {},
+  options: { limit?: number; before?: number } = {},
 ): Promise<{ entries: AuditEntry[]; nextAfter: number | null }> {
-  const { auditTopicId } = getServerConfig();
+  const { auditTopicId } = getAuditConfig();
   const limit = Math.min(Math.max(options.limit ?? 25, 1), 100);
-  let next: string | null = `/api/v1/topics/${auditTopicId}/messages?limit=${limit}&order=asc`;
-  if (options.after) {
-    next += `&sequencenumber=gt:${options.after}`;
+  let next: string | null = `/api/v1/topics/${auditTopicId}/messages?limit=${limit}&order=desc`;
+  if (options.before) {
+    next += `&sequencenumber=lt:${options.before}`;
   }
 
   const entries: AuditEntry[] = [];
@@ -92,7 +92,8 @@ export async function fetchAuditEntries(
     next = page.links?.next ?? null;
   }
 
-  return { entries, nextAfter: entries.length > 0 ? entries[entries.length - 1].sequenceNumber : null };
+  const oldest = entries.length > 0 ? entries[entries.length - 1].sequenceNumber : null;
+  return { entries, nextAfter: next && oldest !== null ? oldest : null };
 }
 
 function delay(ms: number): Promise<void> {
@@ -102,7 +103,7 @@ function delay(ms: number): Promise<void> {
 export async function pollAuditEntries(options: {
   predicate: (entries: AuditEntry[]) => boolean;
   limit?: number;
-  after?: number;
+  before?: number;
   timeoutMs?: number;
   intervalMs?: number;
 }): Promise<{ entries: AuditEntry[]; timedOut: boolean }> {
@@ -111,7 +112,7 @@ export async function pollAuditEntries(options: {
   const deadline = Date.now() + timeoutMs;
 
   for (;;) {
-    const { entries } = await fetchAuditEntries({ limit: options.limit, after: options.after });
+    const { entries } = await fetchAuditEntries({ limit: options.limit, before: options.before });
     if (options.predicate(entries)) {
       return { entries, timedOut: false };
     }

@@ -60,32 +60,67 @@ describe("fetchAuditEntries", () => {
     vi.unstubAllGlobals();
   });
 
-  it("follows mirror pagination links", async () => {
+  it("requests newest first and follows mirror pagination links", async () => {
+    const calls: string[] = [];
     const fetchMock = vi.fn(async (url: string) => {
-      if (url.includes("sequencenumber=gt") === false && url.includes("limit=2") && !url.includes("page=2")) {
+      calls.push(url);
+      if (!url.includes("page=2")) {
         return {
           ok: true,
           json: async () => ({
-            messages: [mirrorMessage(1, encodeAuditMessage(baseMessage))],
-            links: { next: `/api/v1/topics/${TOPIC_ID}/messages?limit=2&page=2` },
+            messages: [mirrorMessage(5, encodeAuditMessage({ ...baseMessage, action: "freeze" }))],
+            links: { next: `/api/v1/topics/${TOPIC_ID}/messages?limit=1&page=2` },
           }),
         };
       }
       return {
         ok: true,
         json: async () => ({
-          messages: [mirrorMessage(2, encodeAuditMessage({ ...baseMessage, action: "freeze" }))],
-          links: {},
+          messages: [mirrorMessage(4, encodeAuditMessage(baseMessage))],
+          links: { next: `/api/v1/topics/${TOPIC_ID}/messages?limit=1&page=3` },
         }),
       };
     });
     vi.stubGlobal("fetch", fetchMock);
 
     const { entries, nextAfter } = await fetchAuditEntries({ limit: 2 });
-    expect(entries.map(entry => entry.sequenceNumber)).toEqual([1, 2]);
-    expect(entries[1].action).toBe("freeze");
-    expect(nextAfter).toBe(2);
+    expect(calls[0]).toContain("order=desc");
+    expect(entries.map(entry => entry.sequenceNumber)).toEqual([5, 4]);
+    expect(entries[0].action).toBe("freeze");
+    expect(nextAfter).toBe(4);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns a null cursor once the topic is exhausted", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          messages: [
+            mirrorMessage(9, encodeAuditMessage(baseMessage)),
+            mirrorMessage(8, encodeAuditMessage(baseMessage)),
+          ],
+          links: {},
+        }),
+      })),
+    );
+
+    const { entries, nextAfter } = await fetchAuditEntries({ limit: 5 });
+    expect(entries.map(entry => entry.sequenceNumber)).toEqual([9, 8]);
+    expect(nextAfter).toBeNull();
+  });
+
+  it("passes the cursor as an older-than filter", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      expect(url).toContain("sequencenumber=lt:7");
+      return { ok: true, json: async () => ({ messages: [], links: {} }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { entries, nextAfter } = await fetchAuditEntries({ limit: 5, before: 7 });
+    expect(entries).toHaveLength(0);
+    expect(nextAfter).toBeNull();
   });
 
   it("skips unparseable messages", async () => {
@@ -95,7 +130,7 @@ describe("fetchAuditEntries", () => {
         ok: true,
         json: async () => ({
           messages: [
-            mirrorMessage(1, Buffer.from("garbage", "utf8").toString("base64")),
+            mirrorMessage(3, Buffer.from("garbage", "utf8").toString("base64")),
             mirrorMessage(2, encodeAuditMessage(baseMessage)),
           ],
           links: {},
