@@ -19,7 +19,8 @@ description: Deploy the Compliance Token template to Hedera testnet and produce 
 
 - Deploys with `hardhat-deploy` (re-running `yarn hardhat deploy` reuses existing deployments).
 - Creates the HTS token with the HIP-358 creation fee (`createToken`, forwarded with a ~20 HBAR buffer).
-- Grants `COMPLIANCE_OFFICER_ROLE` to the operator's long-zero address `0x000000000000000000000000000000000086790b` **only after the CallerProbe proof** confirms `msg.sender`.
+- Grants `COMPLIANCE_OFFICER_ROLE` to the configured operator's long-zero address
+  (derived from `HEDERA_OPERATOR_ID`) **only after the CallerProbe proof** confirms `msg.sender`.
 - Creates the HCS audit topic if `AUDIT_TOPIC_ID` is empty.
 - Registers the issuer DID (live). On failure it falls back to reduced mode with an explicit warning.
 - Writes ids **only** to `packages/nextjs/.env.local` (never `deployedContracts.ts`; the deploy task is run with `DX_SKIP_TS_ABI=true`).

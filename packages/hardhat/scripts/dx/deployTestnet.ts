@@ -7,9 +7,9 @@ import {
   HASHIO,
   HASHSCAN,
   MIRROR,
-  OPERATOR_LONG_ZERO,
   PACKAGES,
   generateEd25519Issuer,
+  longZeroAddress,
   mirror,
   parseEd25519PrivateKey,
   readEnvFile,
@@ -23,6 +23,20 @@ const repoRoot = path.resolve(__dirname, "../../../..");
 const hardhatRoot = path.join(repoRoot, "packages/hardhat");
 const nextEnvPath = path.join(repoRoot, PACKAGES.nextEnv);
 const deploymentsDir = path.join(hardhatRoot, "deployments/hederaTestnet");
+
+// Deploy prerequisites only: the topic, contract addresses and feed are what this
+// command creates/uses, so they must not block it (doctor reports them as MISSING).
+const DEPLOY_PREREQUISITE_IDS = new Set([
+  "node",
+  "package-manager",
+  "hardhat-env",
+  "nextjs-env",
+  "tracked-secrets",
+  "nextjs-secret-leak",
+  "deployer",
+  "operator",
+  "issuer-key",
+]);
 
 function cleanEnv(extra: Record<string, string | undefined>): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
@@ -59,14 +73,14 @@ function deployment(name: string): { address: string; abi: any[] } | undefined {
   return { address: parsed.address, abi: parsed.abi };
 }
 
-async function operatorHasOfficerRole(compliance: { address: string; abi: any[] }): Promise<boolean> {
+async function operatorHasOfficerRole(compliance: { address: string; abi: any[] }, operator: string): Promise<boolean> {
   const provider = new ethers.JsonRpcProvider(HASHIO.testnet);
   const contract = new ethers.Contract(compliance.address, compliance.abi, provider);
   const role = await contract.COMPLIANCE_OFFICER_ROLE();
-  return Boolean(await contract.hasRole(role, OPERATOR_LONG_ZERO));
+  return Boolean(await contract.hasRole(role, operator));
 }
 
-async function probeOperatorCaller(): Promise<boolean> {
+async function probeOperatorCaller(operator: string): Promise<boolean> {
   const probe = deployment("CallerProbe");
   if (!probe) {
     console.log("⚠️  CallerProbe not deployed — cannot grant the operator role yet");
@@ -105,7 +119,7 @@ async function probeOperatorCaller(): Promise<boolean> {
       if (caller) {
         const address = `0x${caller.slice(26).toLowerCase()}`;
         console.log(`   CallerProbe recorded msg.sender ${address}`);
-        return address === OPERATOR_LONG_ZERO;
+        return address === operator;
       }
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
@@ -156,9 +170,12 @@ function registerIssuerDid(): string | undefined {
 
 async function main(): Promise<void> {
   const report = await runDoctor({ repoRoot, strict: true });
-  if (!report.ready) {
+  const blockers = report.checks.filter(check => DEPLOY_PREREQUISITE_IDS.has(check.id) && check.status !== "OK");
+  if (blockers.length > 0) {
     renderDoctor(report);
-    console.error("\nNOT READY for deploy:testnet. Fix the issues above (start with `yarn setup`).");
+    console.error(
+      "\nNOT READY for deploy:testnet (deploy prerequisites). Fix the issues above (start with `yarn setup`).",
+    );
     process.exit(1);
   }
 
@@ -186,13 +203,15 @@ async function main(): Promise<void> {
   if (/already (created|exists)|tokenAddress\(\) != 0|0x0{40}/i.test(tokenOutput))
     skipped.push("HTS token (already created)");
 
-  if (await operatorHasOfficerRole(compliance)) {
+  const operatorLongZero = longZeroAddress(readEnvFile(nextEnvPath).HEDERA_OPERATOR_ID ?? "0.0.0");
+
+  if (await operatorHasOfficerRole(compliance, operatorLongZero)) {
     skipped.push("operator COMPLIANCE_OFFICER_ROLE (already granted)");
     console.log("\n• operator already holds COMPLIANCE_OFFICER_ROLE — skipped");
-  } else if (await probeOperatorCaller()) {
+  } else if (await probeOperatorCaller(operatorLongZero)) {
     runHardhat(
       ["deploy", "--network", "hederaTestnet", "--tags", "GrantRoles"],
-      { ...deploymentEnv, GRANT_OPERATOR_OFFICER: "true" },
+      { ...deploymentEnv, GRANT_OPERATOR_OFFICER: "true", OPERATOR_ADDRESS: operatorLongZero },
       "granting COMPLIANCE_OFFICER_ROLE to the operator (CallerProbe proven)",
     );
   } else {
