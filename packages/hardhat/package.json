@@ -3,6 +3,10 @@
   "version": "0.0.1",
   "scripts": {
     "account": "hardhat run scripts/listAccount.ts",
+    "dx:doctor": "ts-node scripts/dx/doctor.ts",
+    "dx:setup": "ts-node scripts/dx/setup.ts",
+    "dx:deploy:testnet": "ts-node scripts/dx/deployTestnet.ts",
+    "dx:proof": "ts-node scripts/dx/proof.ts",
     "account:generate": "hardhat run scripts/generateAccount.ts",
     "account:import": "hardhat run scripts/importAccount.ts",
     "account:reveal-pk": "hardhat run scripts/revealPK.ts",
