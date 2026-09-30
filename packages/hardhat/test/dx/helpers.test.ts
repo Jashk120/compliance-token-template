@@ -5,10 +5,12 @@ import * as path from "path";
 import { expect } from "chai";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import {
+  compareVersions,
   gitCheckIgnore,
   isDerPrivateKey,
   isEcdsaHexKey,
   isRawEd25519Hex,
+  majorVersion,
   normalizeHexKey,
   parseDeployerKey,
   parseEd25519PrivateKey,
@@ -23,6 +25,34 @@ function tempRepo(): string {
   execFileSync("git", ["init", "-q"], { cwd: dir });
   return dir;
 }
+
+describe("dx/lib version comparison", function () {
+  it("orders identical, older and newer versions", function () {
+    expect(compareVersions("20.18.3", "20.18.3")).to.equal(0);
+    expect(compareVersions("20.18.2", "20.18.3")).to.equal(-1);
+    expect(compareVersions("20.18.4", "20.18.3")).to.equal(1);
+    expect(compareVersions("22.0.0", "20.18.3")).to.equal(1);
+    expect(compareVersions("18.20.0", "20.18.3")).to.equal(-1);
+  });
+
+  it("compares numerically, not lexically", function () {
+    expect(compareVersions("20.9.0", "20.10.0")).to.equal(-1);
+    expect(compareVersions("1.22.19", "1.22.2")).to.equal(1);
+    expect(compareVersions("20.18", "20.18.0")).to.equal(0);
+  });
+
+  it("strips a leading v and tolerates junk", function () {
+    expect(compareVersions("v20.18.3", "20.18.3")).to.equal(0);
+    expect(compareVersions("garbage", "0.0.0")).to.equal(0);
+  });
+
+  it("reports the major version", function () {
+    expect(majorVersion("3.2.3")).to.equal(3);
+    expect(majorVersion("v20.18.3")).to.equal(20);
+    expect(majorVersion("1.22.19")).to.equal(1);
+    expect(majorVersion("not-a-version")).to.equal(0);
+  });
+});
 
 describe("dx/lib key parsing", function () {
   it("distinguishes raw Ed25519 hex, DER and 0x ECDSA keys", function () {

@@ -11,7 +11,9 @@ Code loads it through `CLAUDE.md`.
 - **Never** put a secret on a command line (argv); scripts read from the environment.
 - Direct the user to **`yarn setup`** to create or fix credentials — it uses hidden
   prompts, writes `0600`, and validates without echoing values.
-- **Always run `yarn doctor` first** to see what is missing; it prints no values.
+- **Always run `yarn doctor` first** to see what is missing; it prints no values. Report
+  its **Prerequisites** group (git, Node, Yarn/Corepack, npm, Hashio/Mirror reachability,
+  OS) and the `next:` fix for each item to the user before doing anything else.
 - Contract addresses, account ids, DIDs and transaction hashes are public and fine to
   print.
 
@@ -40,6 +42,26 @@ Scaffold-HBAR installs the upstream Hedera skills with `--skip-hedera-skills` to
 | `yarn proof` | Runs the live proof, writes `packages/hardhat/docs/testnet-proof.md`. |
 
 The documented order is `yarn setup` → `yarn doctor` → `yarn deploy:testnet` → `yarn dev`.
+
+## Prerequisites (from zero)
+
+Run `yarn doctor` first; its **Prerequisites** group reports each of these with a fix:
+
+- **Git** — required to clone/scaffold.
+- **Node ≥ 20.18.3** — `nvm install 20 && nvm use 20` (or fnm). `node -v`.
+- **Yarn 3 via Corepack** — `corepack enable` (Corepack ships with Node). `yarn -v`
+  must print `3.x`, not `1.x`. Never `npm i -g yarn`.
+- **npm** — ships with Node; the alternative runner.
+- **Network** — `https://testnet.hashio.io/api` and
+  `https://testnet.mirrornode.hedera.com` must be reachable (WARN on firewall/VPN).
+- **OS** — native Windows is not tested; use **WSL2 (Ubuntu)**.
+
+Hardhat is a **local dependency** installed by `yarn install` (no global install);
+Foundry and Docker are not needed. Full walkthrough (macOS/Linux/Windows-WSL2, testnet
+accounts, WalletConnect ID): see the **Starting from zero** section of `README.md`.
+
+Wallets the frontend configures: **MetaMask**, **WalletConnect**, plus a development
+burner wallet on local networks (`packages/nextjs/services/web3/wagmiConnectors.tsx`).
 
 ## This template (Compliance Token)
 

@@ -44,6 +44,111 @@ the treasury/key design and unit handling.
 > private keys sit on the server so a single process can sign and verify; production
 > would use a signing service or an HSM/KMS and never store these keys in a file.
 
+## Starting from zero
+
+### Prerequisites at a glance
+
+| What | Why | How to get it |
+| --- | --- | --- |
+| Git | clone / scaffold the repo | <https://git-scm.com/downloads> |
+| Node.js ≥ 20.18.3 | runs Hardhat and Next.js | via nvm or fnm (below) |
+| Yarn 3 | package manager pinned by `packageManager` | `corepack enable` (Corepack ships with Node) |
+| npm | alternative runner; ships with Node | comes with Node |
+| Hedera testnet account(s) | deployer + operator (and the issuer is generated) | Hedera Portal (below) |
+| WalletConnect (Reown) project ID | wallet pairing for the frontend | <https://cloud.reown.com> |
+
+**Not needed:** a global Hardhat install — Hardhat is a **local dependency** installed by
+`yarn install`. **Foundry and Docker are not needed** either.
+
+`yarn doctor` checks all of the above and prints `[ OK ] / [MISSING] / [INVALID] / [UNSAFE]`
+under a **Prerequisites** group before the secrets checks (no values are ever printed).
+
+### Install (macOS, Linux, Windows/WSL2)
+
+Run these on macOS, Linux, or inside WSL2 (Ubuntu):
+
+```bash
+# Git (pick one)
+#   macOS:         xcode-select --install
+#   Debian/Ubuntu: sudo apt update && sudo apt install -y git
+#   Fedora:        sudo dnf install -y git
+git --version            # expect: git version 2.x
+
+# Node 20 via nvm (install nvm first: https://github.com/nvm-sh/nvm#installing-and-updating)
+nvm install 20
+nvm use 20
+# or fnm: fnm install 20 && fnm use 20
+
+# Yarn 3 through Corepack (already bundled with Node — do NOT npm i -g yarn)
+corepack enable
+
+# Verify
+node -v                  # expect: v20.x or newer (e.g. v22.x)
+yarn -v                  # expect: 3.2.3  (NOT 1.x)
+```
+
+**Windows:** use WSL2 and follow the Linux steps inside Ubuntu — native Windows is not
+tested.
+
+```powershell
+wsl --install -d Ubuntu      # then run the Linux commands above inside Ubuntu
+```
+
+### Get your first testnet account
+
+1. Sign in at the Hedera Portal: <https://portal.hedera.com/register>.
+2. Create **testnet** accounts — one for the **deployer**, one for the **operator**.
+   The Portal shows each account ID (`0.0.x`) and its key.
+3. Choose the key type per role:
+   - **Deployer → ECDSA** (`0x` + 64 hex). Used by Hardhat to sign EVM transactions.
+   - **Operator → Ed25519** (DER or raw hex). Used by the Hedera SDK for compliance
+     transactions.
+4. On the Portal, copy each key in the format for its role (deployer: the ECDSA hex;
+   operator: the Ed25519 DER/hex). `yarn setup` accepts and normalises either form.
+5. Fund the accounts from the faucet: <https://portal.hedera.com/faucet>
+   (deployer ≥ ~100 HBAR recommended, operator ≥ ~20 HBAR).
+
+> **Enter keys only through `yarn setup`** (hidden prompts, mode-`0600` files, validated
+> against the Mirror Node). Never paste a key into chat, an issue, or any other file.
+
+### Get a WalletConnect project ID
+
+The frontend pairs wallets through WalletConnect (Reown). Create a free project at
+<https://cloud.reown.com>, then put its ID in `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` in
+`packages/nextjs/.env.local`. Without it the app falls back to a shared demo ID (fine for
+local viewing only).
+
+Wallets the scaffold frontend actually configures
+(`packages/nextjs/services/web3/wagmiConnectors.tsx`): **MetaMask** and
+**WalletConnect** (any WalletConnect-compatible wallet), plus a **development burner
+wallet** shown only on local networks.
+
+### First commands
+
+```bash
+npm create scaffold-hbar@latest -- --template <owner>/<this-repo>
+cd <this-repo>
+yarn install
+yarn doctor          # fresh machine: NOT READY — follow the "next:" lines
+yarn setup           # enter keys through hidden prompts
+yarn deploy:testnet  # contracts, token, roles, audit topic, issuer DID
+yarn dev             # http://localhost:3000
+```
+
+`yarn doctor` is expected to be **NOT READY** before `yarn setup` and `yarn deploy:testnet`
+have run — it prints the exact next command for each item.
+
+### Common first-run problems
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `node -v` shows < 20.18.3 or "Unsupported engine" | Node not switched | `nvm install 20 && nvm use 20` |
+| `yarn: command not found` or `yarn -v` shows `1.x` | Corepack not enabled | `corepack enable` |
+| `error This project's package.json defines "packageManager"` / lockfile errors | ran `npm install` against the Yarn lockfile | `rm -rf node_modules && yarn install` |
+| doctor: `Reachable: … [ WARN ]` | network / firewall / VPN / proxy | allow `testnet.hashio.io` and `testnet.mirrornode.hedera.com` |
+| `deploy:testnet` fails with insufficient funds | faucet not used | fund the deployer/operator from the faucet, re-run `yarn doctor` |
+| `yarn doctor` says `[UNSAFE]` | a secret is in a tracked/`NEXT_PUBLIC_` file | move it to `packages/hardhat/.env` / `packages/nextjs/.env.local` |
+
 ## Quick start
 
 ### From a fresh clone / scaffold

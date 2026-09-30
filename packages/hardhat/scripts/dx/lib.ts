@@ -34,6 +34,7 @@ export type Status = "OK" | "MISSING" | "INVALID" | "UNSAFE" | "WARN";
 
 export type Check = {
   id: string;
+  group?: string;
   title: string;
   status: Status;
   detail: string;
@@ -52,13 +53,23 @@ export function activeNetwork(): Network {
 }
 
 export function compareVersions(a: string, b: string): number {
-  const pa = a.split(".").map(n => parseInt(n, 10) || 0);
-  const pb = b.split(".").map(n => parseInt(n, 10) || 0);
+  const parse = (value: string) =>
+    value
+      .trim()
+      .replace(/^v/, "")
+      .split(".")
+      .map(n => parseInt(n, 10) || 0);
+  const pa = parse(a);
+  const pb = parse(b);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const d = (pa[i] ?? 0) - (pb[i] ?? 0);
     if (d !== 0) return d < 0 ? -1 : 1;
   }
   return 0;
+}
+
+export function majorVersion(value: string): number {
+  return parseInt(value.trim().replace(/^v/, "").split(".")[0], 10) || 0;
 }
 
 const PKCS8_ED25519_PREFIX = "302e020100300506032b657004220420";

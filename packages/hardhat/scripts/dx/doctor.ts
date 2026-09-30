@@ -16,6 +16,7 @@ import {
   formatHbarFromWeibar,
   gitCheckIgnore,
   listTrackedFiles,
+  majorVersion,
   mirror,
   parseDeployerKey,
   parseEd25519PrivateKey,
@@ -29,8 +30,136 @@ import {
 export type DoctorOptions = { repoRoot: string; strict?: boolean; network?: Network };
 
 const MIN_NODE = "20.18.3";
+const MIN_YARN_MAJOR = 3;
 const MIN_DEPLOYER_HBAR = 100;
 const MIN_OPERATOR_HBAR = 20;
+
+const PREREQUISITE_IDS = new Set(["git", "node", "yarn", "npm", "net-hashio", "net-mirror", "os"]);
+
+function runCommand(command: string, args: string[]): string | undefined {
+  try {
+    return execFileSync(command, args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+function checkGit(): Check {
+  const version = runCommand("git", ["--version"]);
+  return version
+    ? { id: "git", title: "Git installed", status: "OK", detail: version }
+    : {
+        id: "git",
+        title: "Git installed",
+        status: "MISSING",
+        detail: "git not found on PATH",
+        next: "install Git: https://git-scm.com/downloads",
+      };
+}
+
+function checkNode(): Check {
+  const version = process.version.replace(/^v/, "");
+  const ok = compareVersions(version, MIN_NODE) >= 0;
+  return {
+    id: "node",
+    title: `Node >= ${MIN_NODE}`,
+    status: ok ? "OK" : "INVALID",
+    detail: process.version,
+    next: ok ? undefined : `install Node ${MIN_NODE}+ (nvm install 20 && nvm use 20): https://github.com/nvm-sh/nvm`,
+  };
+}
+
+function checkYarn(): Check {
+  const corepack = runCommand("corepack", ["--version"]);
+  const yarn = runCommand("yarn", ["--version"]);
+  const corepackDetail = corepack ? `corepack ${corepack}` : "corepack not found";
+  if (!yarn) {
+    return {
+      id: "yarn",
+      title: "Yarn 3 available",
+      status: "MISSING",
+      detail: `yarn not found on PATH (${corepackDetail})`,
+      next: "corepack enable",
+    };
+  }
+  if (majorVersion(yarn) !== MIN_YARN_MAJOR) {
+    return {
+      id: "yarn",
+      title: "Yarn 3 available",
+      status: "INVALID",
+      detail: `yarn ${yarn} (${corepackDetail}); this repo pins Yarn 3`,
+      next: "corepack enable",
+    };
+  }
+  return { id: "yarn", title: "Yarn 3 available", status: "OK", detail: `yarn ${yarn} (${corepackDetail})` };
+}
+
+function checkNpm(): Check {
+  const version = runCommand("npm", ["--version"]);
+  return version
+    ? { id: "npm", title: "npm available (alternative)", status: "OK", detail: `npm ${version}` }
+    : {
+        id: "npm",
+        title: "npm available (alternative)",
+        status: "WARN",
+        detail: "npm not found on PATH",
+        next: "npm ships with Node; install Node: https://nodejs.org",
+      };
+}
+
+async function checkHashio(url: string): Promise<Check> {
+  try {
+    const chainId = await rpc(url, "eth_chainId");
+    return { id: "net-hashio", title: `Reachable: ${url}`, status: "OK", detail: `chainId ${chainId}` };
+  } catch (error) {
+    return {
+      id: "net-hashio",
+      title: `Reachable: ${url}`,
+      status: "WARN",
+      detail: error instanceof Error ? error.message : String(error),
+      next: "check your network, firewall or proxy (Hashio RPC must be reachable)",
+    };
+  }
+}
+
+async function checkMirrorReachability(url: string): Promise<Check> {
+  const probe = await mirror(url, "/api/v1/transactions?limit=1");
+  return probe
+    ? { id: "net-mirror", title: `Reachable: ${url}`, status: "OK", detail: "Mirror Node responded" }
+    : {
+        id: "net-mirror",
+        title: `Reachable: ${url}`,
+        status: "WARN",
+        detail: "no response",
+        next: "check your network, firewall or proxy (Mirror Node must be reachable)",
+      };
+}
+
+function checkOs(): Check {
+  const detail = `${process.platform} (${process.arch})`;
+  if (process.platform === "win32") {
+    return {
+      id: "os",
+      title: "Operating system",
+      status: "WARN",
+      detail: `${detail} — native Windows is not tested`,
+      next: "suggest WSL2 (Ubuntu): https://learn.microsoft.com/windows/wsl/install",
+    };
+  }
+  return { id: "os", title: "Operating system", status: "OK", detail };
+}
+
+async function checkPrerequisites(network: Network): Promise<Check[]> {
+  return [
+    checkGit(),
+    checkNode(),
+    checkYarn(),
+    checkNpm(),
+    await checkHashio(HASHIO[network]),
+    await checkMirrorReachability(MIRROR[network]),
+    checkOs(),
+  ];
+}
 
 function textInTrackedFiles(repoRoot: string, needle: string): string[] {
   return listTrackedFiles(repoRoot).filter(file => {
@@ -331,33 +460,7 @@ export async function runDoctor(options: DoctorOptions): Promise<DoctorReport> {
   const { repoRoot } = options;
   const network = options.network ?? activeNetwork();
   const checks: Check[] = [];
-
-  const nodeOk = compareVersions(process.version.replace(/^v/, ""), MIN_NODE) >= 0;
-  checks.push({
-    id: "node",
-    title: `Node >= ${MIN_NODE}`,
-    status: nodeOk ? "OK" : "INVALID",
-    detail: process.version,
-    next: nodeOk ? undefined : `install Node >= ${MIN_NODE}`,
-  });
-
-  let packageManager = "";
-  try {
-    packageManager = `yarn ${execFileSync("yarn", ["--version"], { encoding: "utf8" }).trim()}`;
-  } catch {
-    try {
-      packageManager = `npm ${execFileSync("npm", ["--version"], { encoding: "utf8" }).trim()}`;
-    } catch {
-      packageManager = "";
-    }
-  }
-  checks.push({
-    id: "package-manager",
-    title: "yarn (or npm) available",
-    status: packageManager ? "OK" : "MISSING",
-    detail: packageManager || "neither yarn nor npm found on PATH",
-    next: packageManager ? undefined : "corepack enable",
-  });
+  checks.push(...(await checkPrerequisites(network)));
 
   checks.push(envFileCheck(repoRoot, PACKAGES.hardhatEnv, "hardhat"));
   checks.push(envFileCheck(repoRoot, PACKAGES.nextEnv, "nextjs"));
@@ -409,6 +512,10 @@ export async function runDoctor(options: DoctorOptions): Promise<DoctorReport> {
   checks.push(...(await checkContracts(repoRoot, network)));
   checks.push(await checkPriceFeed(repoRoot, network));
 
+  for (const check of checks) {
+    check.group = PREREQUISITE_IDS.has(check.id) ? "Prerequisites" : "Configuration & secrets";
+  }
+
   const hardIssues = checks.filter(c => c.status === "MISSING" || c.status === "INVALID" || c.status === "UNSAFE");
   const warnings = checks.filter(c => c.status === "WARN");
   const issues = options.strict ? hardIssues.length + warnings.length : hardIssues.length;
@@ -424,7 +531,13 @@ const STATUS_MARK: Record<Status, string> = {
 };
 
 export function renderDoctor(report: DoctorReport): void {
+  let currentGroup = "";
   for (const check of report.checks) {
+    const group = check.group ?? "";
+    if (group && group !== currentGroup) {
+      console.log(`\n== ${group} ==`);
+      currentGroup = group;
+    }
     console.log(`${STATUS_MARK[check.status]} ${check.title} — ${check.detail}`);
     if (check.next && check.status !== "OK") {
       console.log(`         next: ${check.next}`);

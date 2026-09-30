@@ -28,7 +28,7 @@ const deploymentsDir = path.join(hardhatRoot, "deployments/hederaTestnet");
 // command creates/uses, so they must not block it (doctor reports them as MISSING).
 const DEPLOY_PREREQUISITE_IDS = new Set([
   "node",
-  "package-manager",
+  "yarn",
   "hardhat-env",
   "nextjs-env",
   "tracked-secrets",
