@@ -7,6 +7,23 @@ description: Diagnose real failures in the Compliance Token template — DID SDK
 
 These are failures actually hit while building the template, with the fix.
 
+## First run: check prerequisites before anything else
+
+Run `yarn doctor` and read its **Prerequisites** group (it prints no values). Report each
+item and its `next:` fix to the user:
+
+- **Git** missing → install from <https://git-scm.com/downloads>.
+- **Node < 20.18.3** → `nvm install 20 && nvm use 20` (or `fnm`); verify with `node -v`.
+- **`yarn` missing or `1.x`** → `corepack enable` (Corepack ships with Node). `yarn -v`
+  must print `3.x`; never `npm i -g yarn` globally.
+- **npm missing** (alternative runner) → ships with Node; install Node.
+- **Hashio/Mirror unreachable** → allow `testnet.hashio.io` and
+  `testnet.mirrornode.hedera.com` through the firewall/VPN/proxy.
+- **Native Windows** → use WSL2 (Ubuntu): `wsl --install -d Ubuntu`.
+
+Hardhat is a local dependency (installed by `yarn install`); Foundry and Docker are not
+needed. Then: `yarn setup` → `yarn doctor` → `yarn deploy:testnet` → `yarn dev`.
+
 ## `ERR_PACKAGE_PATH_NOT_EXPORTED: ./lib/client/NodeClient`
 
 `@hiero-did-sdk/hcs@0.2.1` deep-imports an unexported subpath of `@hiero-ledger/sdk`; every 2.x release restricts `exports` to `"."`.
