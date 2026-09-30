@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CredentialInput } from "./CredentialInput";
+import { InvestorSteps, StepStateBadge, TxLink } from "./InvestorSteps";
+import type { GuideStep, StepState } from "./InvestorSteps";
 import { parseEther } from "viem";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { StatusBadge } from "~~/components/compliance/StatusBadge";
@@ -13,6 +16,26 @@ import { notification } from "~~/utils/scaffold-hbar";
 
 type Props = { config: PublicConfig };
 
+function resolveStepState(
+  done: boolean,
+  busyKey: string,
+  busy: string | null,
+  index: number,
+  activeIndex: number,
+  connected: boolean,
+): StepState {
+  if (done) {
+    return "done";
+  }
+  if (busy === busyKey) {
+    return "in-progress";
+  }
+  if (!connected || index > activeIndex) {
+    return "locked";
+  }
+  return "current";
+}
+
 export function InvestorClient({ config }: Props) {
   const { address, isConnected } = useAccount();
   const saleAddress = config.tokenSaleAddress as `0x${string}`;
@@ -22,6 +45,10 @@ export function InvestorClient({ config }: Props) {
   const [credentialText, setCredentialText] = useState("");
   const [hbarInput, setHbarInput] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [associateTxId, setAssociateTxId] = useState<string | null>(null);
+  const [kycTxId, setKycTxId] = useState<string | null>(null);
+  const [buyTxId, setBuyTxId] = useState<string | null>(null);
+  const [boughtHbar, setBoughtHbar] = useState<string | null>(null);
 
   const { writeContractAsync, isPending } = useWriteContract();
 
@@ -113,7 +140,56 @@ export function InvestorClient({ config }: Props) {
     return BigInt(status.capUsd8) - BigInt(status.spentUsd8);
   }, [status]);
 
+  const spent8 = useMemo(() => {
+    if (!status?.spentUsd8) {
+      return 0n;
+    }
+    try {
+      return BigInt(status.spentUsd8);
+    } catch {
+      return 0n;
+    }
+  }, [status]);
+
   const canBuy = Boolean(status?.associated && status?.kycGranted && !status?.frozen && !status?.paused);
+
+  const connected = isConnected && Boolean(address);
+  const step1Done = Boolean(status?.associated);
+  const step2Done = Boolean(status?.kycGranted);
+  const step3Done = spent8 > 0n;
+  const activeIndex = !step1Done ? 0 : !step2Done ? 1 : !step3Done ? 2 : 3;
+  const step1State = resolveStepState(step1Done, "associate", busy, 0, activeIndex, connected);
+  const step2State = resolveStepState(step2Done, "kyc", busy, 1, activeIndex, connected);
+  const step3State = resolveStepState(step3Done, "buy", busy, 2, activeIndex, connected);
+
+  const steps: GuideStep[] = [
+    { title: "Associate token", hint: "Link your wallet to CMP", state: step1State },
+    { title: "Verify KYC", hint: "Submit your signed credential", state: step2State },
+    { title: "Buy tokens", hint: "Purchase within your USD cap", state: step3State },
+  ];
+
+  const buyBlockers = useMemo(() => {
+    const blockers: string[] = [];
+    if (!status) {
+      return blockers;
+    }
+    if (!status.associated) {
+      blockers.push("associate the token (step 1)");
+    }
+    if (!status.kycGranted) {
+      blockers.push("verify your KYC credential (step 2)");
+    }
+    if (status.frozen) {
+      blockers.push("ask a compliance officer to unfreeze the account");
+    }
+    if (status.paused) {
+      blockers.push("wait for the token to be unpaused");
+    }
+    if (isStale) {
+      blockers.push("wait for the price feed to update");
+    }
+    return blockers;
+  }, [status, isStale]);
 
   async function onAssociate() {
     if (!address || !status?.tokenAddress) {
@@ -127,6 +203,7 @@ export function InvestorClient({ config }: Props) {
         functionName: "associateToken",
         args: [address, status.tokenAddress as `0x${string}`],
       });
+      setAssociateTxId(hash);
       notification.success(`Association submitted (${shortAddress(hash)})`);
       await refreshStatus();
     } catch (error) {
@@ -150,7 +227,8 @@ export function InvestorClient({ config }: Props) {
     setBusy("kyc");
     try {
       const result = await submitCredential(address, credential);
-      notification.success(`KYC granted (tx ${shortAddress(result.txId)})`);
+      setKycTxId(result.txId);
+      notification.success(result.txId ? `KYC granted (tx ${shortAddress(result.txId)})` : "KYC granted.");
       await refreshStatus();
     } catch (error) {
       notification.error(describeError(error));
@@ -160,6 +238,7 @@ export function InvestorClient({ config }: Props) {
   }
 
   async function onBuy() {
+    const amountLabel = hbarInput.trim();
     let value: bigint;
     try {
       value = parseEther(hbarInput);
@@ -179,6 +258,8 @@ export function InvestorClient({ config }: Props) {
         functionName: "buy",
         value,
       });
+      setBuyTxId(hash);
+      setBoughtHbar(amountLabel);
       notification.success(`Purchase submitted (${shortAddress(hash)})`);
       await refreshStatus();
     } catch (error) {
@@ -203,8 +284,38 @@ export function InvestorClient({ config }: Props) {
         </div>
       ) : null}
 
+      <section className="card bg-base-100 shadow-xl w-full max-w-4xl" aria-label="Investment progress">
+        <div className="card-body gap-4">
+          <h2 className="card-title text-lg">Your progress</h2>
+          <InvestorSteps steps={steps} />
+          <div aria-live="polite" className="flex flex-col gap-2">
+            {associateTxId ? (
+              <div className="alert alert-success text-sm">
+                <span>
+                  Token associated — next: verify your KYC credential. <TxLink txId={associateTxId} />
+                </span>
+              </div>
+            ) : null}
+            {kycTxId ? (
+              <div className="alert alert-success text-sm">
+                <span>
+                  KYC granted — you can now buy tokens. <TxLink txId={kycTxId} />
+                </span>
+              </div>
+            ) : null}
+            {buyTxId ? (
+              <div className="alert alert-success text-sm">
+                <span>
+                  Purchase complete{boughtHbar ? ` — ${boughtHbar} HBAR` : ""}. <TxLink txId={buyTxId} />
+                </span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
       <div className="grid w-full max-w-4xl grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="card bg-base-100 shadow-xl">
+        <section className="card bg-base-100 shadow-xl" aria-label="Account status">
           <div className="card-body gap-3">
             <h2 className="card-title text-lg">Status</h2>
             {statusError ? <div className="alert alert-error text-sm">{statusError}</div> : null}
@@ -228,38 +339,75 @@ export function InvestorClient({ config }: Props) {
           </div>
         </section>
 
-        <section className="card bg-base-100 shadow-xl">
+        <section
+          className={`card bg-base-100 shadow-xl ${step1State === "current" ? "border border-primary" : ""}`}
+          aria-label="Step 1 associate token"
+        >
           <div className="card-body gap-3">
-            <h2 className="card-title text-lg">Compliance</h2>
+            <h2 className="card-title text-lg">
+              Step 1 — Associate token <StepStateBadge state={step1State} />
+            </h2>
+            <p className="text-base-content/70 text-sm">Link your wallet to the Compliance Token (CMP).</p>
             <button
               className="btn btn-secondary"
               onClick={onAssociate}
-              disabled={!status?.tokenAddress || busy !== null || isPending}
+              disabled={!status?.tokenAddress || busy !== null || isPending || step1Done}
+              title={step1Done ? "Already associated" : !status?.tokenAddress ? "Waiting for token status…" : undefined}
             >
               {busy === "associate" ? <span className="loading loading-spinner loading-sm" /> : "Associate token"}
             </button>
-            <label className="form-control">
-              <span className="label-text text-base-content/70">Signed credential (JSON)</span>
-              <textarea
-                className="textarea textarea-bordered h-32 font-mono text-xs"
-                value={credentialText}
-                onChange={event => setCredentialText(event.target.value)}
-                placeholder='{ "subject": "0x...", "issuer": "did:hedera:...", ... }'
-              />
-            </label>
-            <button
-              className="btn btn-primary"
-              onClick={onSubmitCredential}
-              disabled={credentialText.trim().length === 0 || busy !== null || isPending}
-            >
-              {busy === "kyc" ? <span className="loading loading-spinner loading-sm" /> : "Submit credential"}
-            </button>
+            {step1Done ? (
+              <p className="text-base-content/60 text-xs">Token is already associated for this account.</p>
+            ) : !status?.tokenAddress ? (
+              <p className="text-base-content/60 text-xs">Waiting for the token status to load before associating.</p>
+            ) : null}
+            {associateTxId ? (
+              <p className="text-xs">
+                Association tx: <TxLink txId={associateTxId} />
+              </p>
+            ) : null}
           </div>
         </section>
 
-        <section className="card bg-base-100 shadow-xl lg:col-span-2">
+        <section
+          className={`card bg-base-100 shadow-xl ${step2State === "current" ? "border border-primary" : ""}`}
+          aria-label="Step 2 verify KYC"
+        >
           <div className="card-body gap-3">
-            <h2 className="card-title text-lg">Buy tokens</h2>
+            <h2 className="card-title text-lg">
+              Step 2 — Verify KYC <StepStateBadge state={step2State} />
+            </h2>
+            {step2State === "locked" ? (
+              <p className="text-base-content/60 text-xs">Associate the token first (step 1) to unlock this step.</p>
+            ) : null}
+            <CredentialInput value={credentialText} onChange={setCredentialText} disabled={step2State === "locked"} />
+            <button
+              className="btn btn-primary"
+              onClick={onSubmitCredential}
+              disabled={credentialText.trim().length === 0 || busy !== null || isPending || step2State === "locked"}
+              title={step2State === "locked" ? "Associate the token first" : undefined}
+            >
+              {busy === "kyc" ? <span className="loading loading-spinner loading-sm" /> : "Submit credential"}
+            </button>
+            {kycTxId ? (
+              <p className="text-xs">
+                KYC grant tx: <TxLink txId={kycTxId} />
+              </p>
+            ) : null}
+          </div>
+        </section>
+
+        <section
+          className={`card bg-base-100 shadow-xl ${step3State === "current" ? "border border-primary" : ""}`}
+          aria-label="Step 3 buy tokens"
+        >
+          <div className="card-body gap-3">
+            <h2 className="card-title text-lg">
+              Step 3 — Buy tokens <StepStateBadge state={step3State} />
+            </h2>
+            {step3State === "locked" ? (
+              <p className="text-base-content/60 text-xs">Complete steps 1 and 2 above to unlock buying.</p>
+            ) : null}
             {isStale ? (
               <div className="alert alert-warning text-sm">
                 The Chainlink HBAR/USD price is stale. Buying is disabled until the feed updates.
@@ -293,10 +441,16 @@ export function InvestorClient({ config }: Props) {
                 {busy === "buy" ? <span className="loading loading-spinner loading-sm" /> : "Buy"}
               </button>
             </div>
-            {!canBuy && status ? (
-              <p className="text-base-content/60 text-xs">
-                Buying requires the account to be associated, KYC-granted, unfrozen, and the token unpaused.
+            {buyTxId ? (
+              <p className="text-xs">
+                Purchase tx: <TxLink txId={buyTxId} />
               </p>
+            ) : null}
+            {!canBuy && status ? (
+              <div className="text-base-content/60 text-xs">
+                <p>Buying requires the account to be associated, KYC-granted, unfrozen, and the token unpaused.</p>
+                {buyBlockers.length > 0 ? <p>Still needed: {buyBlockers.join(", ")}.</p> : null}
+              </div>
             ) : null}
           </div>
         </section>
