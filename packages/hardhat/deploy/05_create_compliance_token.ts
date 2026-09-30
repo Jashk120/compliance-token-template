@@ -1,8 +1,8 @@
 import type { HardhatRuntimeEnvironment } from "hardhat/types";
 import type { DeployFunction } from "hardhat-deploy/types";
 
-// Must match CREATION_FEE in 01_deploy_compliance_token.ts (15 HBAR, in weibar).
-const CREATION_FEE = "15000000000000000000";
+// Must match CREATION_FEE in 01_deploy_compliance_token.ts (20 HBAR, in tinybar).
+const CREATION_FEE = "2000000000";
 const DECIMALS = 6;
 const INITIAL_SUPPLY = "1000000000000"; // 1,000,000 tokens with 6 decimals
 

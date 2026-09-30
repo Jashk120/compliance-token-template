@@ -3,10 +3,11 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-const CREATION_FEE = ethers.parseEther("1");
+const CREATION_FEE = ethers.parseUnits("1", 8);
 const DECIMALS = 6;
 const INITIAL_SUPPLY = 1_000_000n * 10n ** BigInt(DECIMALS);
 
+const ADMIN_KEY = 1n;
 const KYC_KEY = 2n;
 const FREEZE_KEY = 4n;
 const SUPPLY_KEY = 16n;
@@ -43,7 +44,7 @@ describe("ComplianceToken", function () {
       expect(await compliance.tokenAddress()).to.equal(tokenAddress);
       expect(await hts.treasuryOf(tokenAddress)).to.equal(contractAddress);
       expect(await hts.isPaused(tokenAddress)).to.equal(false);
-      for (const keyType of [KYC_KEY, FREEZE_KEY, SUPPLY_KEY, PAUSE_KEY]) {
+      for (const keyType of [ADMIN_KEY, KYC_KEY, FREEZE_KEY, SUPPLY_KEY, PAUSE_KEY]) {
         expect(await hts.keyController(tokenAddress, keyType)).to.equal(contractAddress);
       }
     });
@@ -71,7 +72,7 @@ describe("ComplianceToken", function () {
     it("forwards the fee to HTS and refunds the excess to the caller", async function () {
       const { compliance, admin, hts } = await loadFixture(deployBase);
       const tx = compliance.connect(admin).createToken("Excess", "EXC", DECIMALS, INITIAL_SUPPLY, {
-        value: CREATION_FEE + ethers.parseEther("5"),
+        value: CREATION_FEE + ethers.parseUnits("5", 8),
       });
       await expect(tx).to.changeEtherBalance(admin, -CREATION_FEE);
       expect(await ethers.provider.getBalance(await hts.getAddress())).to.equal(CREATION_FEE);
@@ -114,8 +115,16 @@ describe("ComplianceToken", function () {
       );
     });
 
+    it("reverts grantKyc for an unassociated account with the real HTS response code", async function () {
+      const { compliance, admin, alice } = await loadFixture(deployWithToken);
+      await expect(compliance.connect(admin).grantKyc(alice.address))
+        .to.be.revertedWithCustomError(compliance, "HtsCallFailed")
+        .withArgs(184);
+    });
+
     it("lets the admin grant the compliance officer role", async function () {
       const { compliance, admin, alice, tokenAddress, hts } = await loadFixture(deployWithToken);
+      await hts.connect(alice).associateToken(alice.address, tokenAddress);
       await compliance.connect(admin).grantRole(await compliance.COMPLIANCE_OFFICER_ROLE(), alice.address);
       await expect(compliance.connect(alice).grantKyc(alice.address))
         .to.emit(compliance, "KycGranted")
@@ -130,8 +139,8 @@ describe("ComplianceToken", function () {
     });
 
     it("emits typed events with account, operator and timestamp", async function () {
-      const { compliance, admin, alice, tokenAddress } = await loadFixture(deployWithToken);
-      void tokenAddress;
+      const { compliance, admin, alice, tokenAddress, hts } = await loadFixture(deployWithToken);
+      await hts.connect(alice).associateToken(alice.address, tokenAddress);
       await expect(compliance.connect(admin).grantKyc(alice.address))
         .to.emit(compliance, "KycGranted")
         .withArgs(alice.address, admin.address, anyValue);

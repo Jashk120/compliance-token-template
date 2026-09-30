@@ -116,6 +116,7 @@ contract MockHTS is IHederaTokenService {
     function grantTokenKyc(address token, address account) external override returns (int64) {
         if (!_tokens[token].exists) return TOKEN_NOT_FOUND;
         if (_keyControllers[token][KYC_KEY_TYPE] != msg.sender) return INVALID_SIGNATURE;
+        if (!_associated[token][account]) return TOKEN_NOT_ASSOCIATED_TO_ACCOUNT;
         _kyc[token][account] = true;
         return SUCCESS;
     }
@@ -124,6 +125,7 @@ contract MockHTS is IHederaTokenService {
     function revokeTokenKyc(address token, address account) external override returns (int64) {
         if (!_tokens[token].exists) return TOKEN_NOT_FOUND;
         if (_keyControllers[token][KYC_KEY_TYPE] != msg.sender) return INVALID_SIGNATURE;
+        if (!_associated[token][account]) return TOKEN_NOT_ASSOCIATED_TO_ACCOUNT;
         _kyc[token][account] = false;
         return SUCCESS;
     }

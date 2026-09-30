@@ -2,7 +2,7 @@ import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-const CREATION_FEE = ethers.parseEther("1");
+const CREATION_FEE = ethers.parseUnits("1", 8);
 const DECIMALS = 6;
 const INITIAL_SUPPLY = 1_000_000n * 10n ** BigInt(DECIMALS);
 
@@ -12,8 +12,8 @@ const TOKEN_UNIT = 10n ** BigInt(DECIMALS);
 const CAP_USD8 = 100_000_000_000n; // $1000.00 per investor, 8 decimals
 const MAX_STALENESS = 86_400n; // 24h
 
-// USD (8dp) -> HBAR weibar (18dp) at the fixture oracle price.
-const weiFor = (usd8: bigint) => (usd8 * 10n ** 18n) / ORACLE_PRICE8;
+// USD (8dp) -> HBAR tinybar (8dp) at the fixture oracle price.
+const tinybarFor = (usd8: bigint) => (usd8 * 10n ** 8n) / ORACLE_PRICE8;
 
 async function deploySale() {
   const [admin, buyer, other] = await ethers.getSigners();
@@ -67,7 +67,7 @@ async function deploySaleReady() {
 describe("TokenSale", function () {
   it("sells tokens after the buyer is associated and KYC-granted", async function () {
     const { sale, buyer, hts, tokenAddress } = await loadFixture(deploySaleReady);
-    const value = weiFor(100_000_000n); // $1.00
+    const value = tinybarFor(100_000_000n); // $1.00
 
     expect(await sale.connect(buyer).buy.staticCall({ value })).to.equal(TOKEN_UNIT);
     await expect(sale.connect(buyer).buy({ value }))
@@ -79,7 +79,7 @@ describe("TokenSale", function () {
   it("reverts with KycNotGranted (176) when the buyer has no KYC", async function () {
     const { sale, buyer, hts, tokenAddress } = await loadFixture(deploySale);
     await hts.connect(buyer).associateToken(buyer.address, tokenAddress);
-    await expect(sale.connect(buyer).buy({ value: weiFor(100_000_000n) }))
+    await expect(sale.connect(buyer).buy({ value: tinybarFor(100_000_000n) }))
       .to.be.revertedWithCustomError(sale, "KycNotGranted")
       .withArgs(176);
   });
@@ -87,7 +87,7 @@ describe("TokenSale", function () {
   it("reverts with KycNotGranted (176) after KYC is revoked", async function () {
     const { sale, buyer, compliance } = await loadFixture(deploySaleReady);
     await compliance.revokeKyc(buyer.address);
-    await expect(sale.connect(buyer).buy({ value: weiFor(100_000_000n) }))
+    await expect(sale.connect(buyer).buy({ value: tinybarFor(100_000_000n) }))
       .to.be.revertedWithCustomError(sale, "KycNotGranted")
       .withArgs(176);
   });
@@ -95,7 +95,7 @@ describe("TokenSale", function () {
   it("reverts with Frozen (165) when the buyer is frozen", async function () {
     const { sale, buyer, compliance } = await loadFixture(deploySaleReady);
     await compliance.freeze(buyer.address);
-    await expect(sale.connect(buyer).buy({ value: weiFor(100_000_000n) }))
+    await expect(sale.connect(buyer).buy({ value: tinybarFor(100_000_000n) }))
       .to.be.revertedWithCustomError(sale, "Frozen")
       .withArgs(165);
   });
@@ -103,17 +103,16 @@ describe("TokenSale", function () {
   it("reverts with Paused (265) when the token is paused", async function () {
     const { sale, buyer, compliance } = await loadFixture(deploySaleReady);
     await compliance.pause();
-    await expect(sale.connect(buyer).buy({ value: weiFor(100_000_000n) }))
+    await expect(sale.connect(buyer).buy({ value: tinybarFor(100_000_000n) }))
       .to.be.revertedWithCustomError(sale, "Paused")
       .withArgs(265);
   });
 
-  it("reverts with NotAssociated (184) when the buyer is not associated", async function () {
-    const { sale, buyer, compliance } = await loadFixture(deploySale);
-    await compliance.grantKyc(buyer.address);
-    await expect(sale.connect(buyer).buy({ value: weiFor(100_000_000n) }))
-      .to.be.revertedWithCustomError(sale, "NotAssociated")
-      .withArgs(184);
+  it("reverts with KycNotGranted (176) when an unassociated buyer buys", async function () {
+    const { sale, buyer } = await loadFixture(deploySale);
+    await expect(sale.connect(buyer).buy({ value: tinybarFor(100_000_000n) }))
+      .to.be.revertedWithCustomError(sale, "KycNotGranted")
+      .withArgs(176);
   });
 
   describe("oracle", function () {
@@ -121,7 +120,7 @@ describe("TokenSale", function () {
       const { sale, buyer, aggregator } = await loadFixture(deploySaleReady);
       const now = await time.latest();
       await aggregator.setUpdatedAt(BigInt(now) - MAX_STALENESS - 1n);
-      await expect(sale.connect(buyer).buy({ value: weiFor(100_000_000n) })).to.be.revertedWithCustomError(
+      await expect(sale.connect(buyer).buy({ value: tinybarFor(100_000_000n) })).to.be.revertedWithCustomError(
         sale,
         "StalePrice",
       );
@@ -130,7 +129,7 @@ describe("TokenSale", function () {
     it("reverts on a zero answer", async function () {
       const { sale, buyer, aggregator } = await loadFixture(deploySaleReady);
       await aggregator.setAnswer(0);
-      await expect(sale.connect(buyer).buy({ value: weiFor(100_000_000n) }))
+      await expect(sale.connect(buyer).buy({ value: tinybarFor(100_000_000n) }))
         .to.be.revertedWithCustomError(sale, "InvalidPrice")
         .withArgs(0);
     });
@@ -138,7 +137,7 @@ describe("TokenSale", function () {
     it("reverts on a negative answer", async function () {
       const { sale, buyer, aggregator } = await loadFixture(deploySaleReady);
       await aggregator.setAnswer(-1);
-      await expect(sale.connect(buyer).buy({ value: weiFor(100_000_000n) }))
+      await expect(sale.connect(buyer).buy({ value: tinybarFor(100_000_000n) }))
         .to.be.revertedWithCustomError(sale, "InvalidPrice")
         .withArgs(-1);
     });
@@ -147,7 +146,7 @@ describe("TokenSale", function () {
       const { sale, buyer, aggregator } = await loadFixture(deploySaleReady);
       const now = await time.latest();
       await aggregator.setRoundData(2, ORACLE_PRICE8, BigInt(now), BigInt(now), 1);
-      await expect(sale.connect(buyer).buy({ value: weiFor(100_000_000n) }))
+      await expect(sale.connect(buyer).buy({ value: tinybarFor(100_000_000n) }))
         .to.be.revertedWithCustomError(sale, "IncompleteRound")
         .withArgs(2, 1);
     });
@@ -156,18 +155,18 @@ describe("TokenSale", function () {
       const { sale, buyer, aggregator } = await loadFixture(deploySaleReady);
       await aggregator.setDecimals(6);
       await aggregator.setAnswer(800_000n); // $0.80 at 6 decimals
-      const value = 10n ** 18n; // 1 HBAR => $0.80 = 80_000_000 at 8 decimals
+      const value = 10n ** 8n; // 1 HBAR => $0.80 = 80_000_000 at 8 decimals
       await expect(sale.connect(buyer).buy({ value }))
         .to.emit(sale, "TokensPurchased")
         .withArgs(buyer.address, 800_000n, 80_000_000n, value, 0n);
     });
   });
 
-  it("converts HBAR weibar to 8-decimal USD correctly", async function () {
+  it("converts HBAR tinybar to 8-decimal USD correctly", async function () {
     const { sale, buyer, aggregator } = await loadFixture(deploySaleReady);
     await aggregator.setAnswer(8_000_000n); // $0.08 per HBAR, 8 decimals
-    // 1 HBAR = 1e18 weibar (18 decimals) => 1e18 * 8e6 / 1e18 = 8e6 (8-decimal USD).
-    const value = 10n ** 18n;
+    // 1 HBAR = 1e8 tinybar (8 decimals) => 1e8 * 8e6 / 1e8 = 8e6 (8-decimal USD).
+    const value = 10n ** 8n;
     await expect(sale.connect(buyer).buy({ value }))
       .to.emit(sale, "TokensPurchased")
       .withArgs(buyer.address, 80_000n, 8_000_000n, value, 0n);
@@ -175,10 +174,10 @@ describe("TokenSale", function () {
 
   it("allows spending exactly at the per-investor cap and rejects one USD unit over", async function () {
     const { sale, buyer, other } = await loadFixture(deploySaleReady);
-    const atCap = weiFor(CAP_USD8);
+    const atCap = tinybarFor(CAP_USD8);
     await expect(sale.connect(buyer).buy({ value: atCap })).to.emit(sale, "TokensPurchased");
 
-    const oneOver = weiFor(CAP_USD8 + 1n);
+    const oneOver = tinybarFor(CAP_USD8 + 1n);
     await expect(sale.connect(other).buy({ value: oneOver }))
       .to.be.revertedWithCustomError(sale, "PerInvestorCapExceeded")
       .withArgs(other.address, CAP_USD8 + 1n, CAP_USD8);
@@ -186,13 +185,13 @@ describe("TokenSale", function () {
 
   it("refunds unconvertible dust to the buyer", async function () {
     const { sale, buyer } = await loadFixture(deploySaleReady);
-    const dust = 10n ** 10n;
-    const value = weiFor(100_000_000n) + dust; // $1.00 + 1 USD unit of dust
+    const dust = 1n;
+    const value = tinybarFor(100_000_000n) + dust; // $1.00 + 1 USD unit of dust
     const tx = sale.connect(buyer).buy({ value });
     await expect(tx)
       .to.emit(sale, "TokensPurchased")
       .withArgs(buyer.address, TOKEN_UNIT, 100_000_000n + 1n, value, dust);
-    await expect(tx).to.changeEtherBalance(buyer, -weiFor(100_000_000n));
+    await expect(tx).to.changeEtherBalance(buyer, -tinybarFor(100_000_000n));
   });
 
   it("blocks reentrancy through the dust refund", async function () {
@@ -205,7 +204,7 @@ describe("TokenSale", function () {
     await hts.connect(buyer).associateToken(attackerAddress, tokenAddress);
     await compliance.grantKyc(attackerAddress);
 
-    await expect(attacker.attack({ value: weiFor(100_000_000n) + 10n ** 10n })).to.be.reverted;
+    await expect(attacker.attack({ value: tinybarFor(100_000_000n) + 1n })).to.be.reverted;
     expect(await hts.balanceOf(tokenAddress, attackerAddress)).to.equal(0n);
   });
 
