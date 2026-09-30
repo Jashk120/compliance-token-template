@@ -1815,6 +1815,34 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@hiero-ledger/sdk@npm:2.89.1, @hiero-ledger/sdk@npm:^2.81.0":
+  version: 2.89.1
+  resolution: "@hiero-ledger/sdk@npm:2.89.1"
+  dependencies:
+    "@grpc/grpc-js": 1.12.7
+    "@hiero-ledger/cryptography": 1.22.0
+    "@hiero-ledger/proto": 2.31.0
+    ansi-regex: 6.2.2
+    ansi-styles: 7.0.0
+    bignumber.js: 11.1.2
+    bn.js: 5.2.3
+    crypto-js: 4.2.0
+    debug: 4.4.1
+    ethers: 6.16.0
+    js-base64: 3.7.4
+    long: 5.3.1
+    pino: 10.1.0
+    pino-pretty: 13.0.0
+    protobufjs: 8.6.6
+    rfc4648: 1.5.3
+    strip-ansi: 7.1.2
+    utf8: 3.0.0
+  peerDependencies:
+    bn.js: 5.2.3
+  checksum: 417f32b28fe40c1a18dfacdc5f05e455bba4b12f74652eb2dd2ac77dc6da9be38f0031bd73dc7dfe9359d0ce0c02ac987897a5f142a93b5d7667cd83886373e0
+  languageName: node
+  linkType: hard
+
 "@hiero-ledger/sdk@npm:^2.80.0":
   version: 2.80.0
   resolution: "@hiero-ledger/sdk@npm:2.80.0"
@@ -1843,34 +1871,6 @@ __metadata:
   peerDependencies:
     bn.js: 5.2.1
   checksum: 2a8debec892b0887062c9c717805209aa0ca84b4a3a72c5a6adb1cc9fc09ff89220c60558a20ebad07047e993356d11d4b1ec340d6c622ba1cb1aa3b31988df9
-  languageName: node
-  linkType: hard
-
-"@hiero-ledger/sdk@npm:^2.81.0":
-  version: 2.89.1
-  resolution: "@hiero-ledger/sdk@npm:2.89.1"
-  dependencies:
-    "@grpc/grpc-js": 1.12.7
-    "@hiero-ledger/cryptography": 1.22.0
-    "@hiero-ledger/proto": 2.31.0
-    ansi-regex: 6.2.2
-    ansi-styles: 7.0.0
-    bignumber.js: 11.1.2
-    bn.js: 5.2.3
-    crypto-js: 4.2.0
-    debug: 4.4.1
-    ethers: 6.16.0
-    js-base64: 3.7.4
-    long: 5.3.1
-    pino: 10.1.0
-    pino-pretty: 13.0.0
-    protobufjs: 8.6.6
-    rfc4648: 1.5.3
-    strip-ansi: 7.1.2
-    utf8: 3.0.0
-  peerDependencies:
-    bn.js: 5.2.3
-  checksum: 417f32b28fe40c1a18dfacdc5f05e455bba4b12f74652eb2dd2ac77dc6da9be38f0031bd73dc7dfe9359d0ce0c02ac987897a5f142a93b5d7667cd83886373e0
   languageName: node
   linkType: hard
 
@@ -3925,7 +3925,7 @@ __metadata:
     "@heroicons/react": ^2.1.5
     "@hiero-did-sdk/registrar": 0.2.1
     "@hiero-did-sdk/resolver": 0.2.1
-    "@hiero-ledger/sdk": ^2.81.0
+    "@hiero-ledger/sdk": 2.89.1
     "@rainbow-me/rainbowkit": 2.2.9
     "@react-native-async-storage/async-storage": ^2.2.0
     "@scaffold-hbar-ui/components": ^2.0.0

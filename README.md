@@ -82,7 +82,7 @@ read from `packages/nextjs/contracts/deployedContracts.ts` first and fall back t
 | --- | --- |
 | `HEDERA_NETWORK` | `testnet` (default) or `mainnet`. |
 | `HEDERA_OPERATOR_ID` / `HEDERA_OPERATOR_PRIVATE_KEY` | Operator that signs compliance transactions (holds `COMPLIANCE_OFFICER_ROLE`). |
-| `ISSUER_DID` | `did:hedera` identifier whose Ed25519 key signs investor credentials. |
+| `ISSUER_DID` | `did:hedera` identifier whose Ed25519 key signs investor credentials. Resolved on-chain by default. |
 | `ISSUER_DID_PRIVATE_KEY` | Issuer key, used only by `credential:issue` and `issuer:register`. |
 | `ISSUER_PUBLIC_KEY` | Optional reduced mode (see below). Unset by default. |
 | `AUDIT_TOPIC_ID` | HCS topic for the audit log (create with `audit:create-topic`). |
@@ -92,10 +92,14 @@ read from `packages/nextjs/contracts/deployedContracts.ts` first and fall back t
 > **Demo-grade guard.** `ADMIN_API_TOKEN` is a single shared secret compared
 > server-side; it is fine for a template but is not production authentication.
 
-> **Reduced issuer mode.** If `ISSUER_PUBLIC_KEY` is set (multibase `z...` or base58),
-> the server verifies credentials against that key instead of resolving `ISSUER_DID`.
-> This is an explicit fallback for environments where DID registration is unavailable;
-> resolution is never faked.
+> **DID resolution is the default.** The server resolves `ISSUER_DID` from its HCS topic
+> and verifies credentials against the DID document's Ed25519 `#did-root-key`. Register the
+> issuer once with `yarn workspace @sh/nextjs issuer:register`.
+>
+> **Reduced issuer mode (fallback).** If `ISSUER_PUBLIC_KEY` is set (multibase `z...` or
+> base58), the server verifies against that key instead of resolving `ISSUER_DID`. This is
+> an explicit fallback for environments where DID registration is unavailable; resolution
+> is never faked.
 
 **Never commit `.env`/`.env.local` or private keys** — both are gitignored. With no env
 file the app still boots; the pages show an explicit "Missing configuration" state.

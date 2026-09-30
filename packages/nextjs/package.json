@@ -12,7 +12,7 @@
     "start": "next dev",
     "test": "vitest run",
     "test:watch": "vitest",
-    "issuer:register": "tsx scripts/registerIssuerDid.ts",
+    "issuer:register": "tsx --import ./scripts/registerHieroNodeClientLoader.mjs scripts/registerIssuerDid.ts",
     "audit:create-topic": "tsx scripts/createAuditTopic.ts",
     "credential:issue": "tsx scripts/issueDemoCredential.ts"
   },
@@ -20,7 +20,7 @@
     "@heroicons/react": "^2.1.5",
     "@hiero-did-sdk/registrar": "0.2.1",
     "@hiero-did-sdk/resolver": "0.2.1",
-    "@hiero-ledger/sdk": "^2.81.0",
+    "@hiero-ledger/sdk": "2.89.1",
     "@rainbow-me/rainbowkit": "2.2.9",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@scaffold-hbar-ui/components": "^2.0.0",
