@@ -307,7 +307,8 @@ Helper scripts (run from `packages/nextjs`):
 ```bash
 yarn workspace @sh/nextjs issuer:register                      # register the issuer did:hedera
 yarn workspace @sh/nextjs audit:create-topic                    # create the HCS audit topic
-yarn workspace @sh/nextjs credential:issue --address 0x...      # sign a demo credential
+yarn workspace @sh/nextjs credential:issue                      # print a signed credential for the env investor address
+yarn workspace @sh/nextjs credential:issue --address 0x...      # ...or for an explicit address
 ```
 
 ## Testing and where MockHTS differs
