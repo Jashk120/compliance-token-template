@@ -1,12 +1,14 @@
 import type { HardhatRuntimeEnvironment } from "hardhat/types";
 import type { DeployFunction } from "hardhat-deploy/types";
 
-const CREATION_FEE = "1000000000000000000"; // 1 HBAR in weibar
+// Must match CREATION_FEE in 01_deploy_compliance_token.ts (15 HBAR, in weibar).
+const CREATION_FEE = "15000000000000000000";
 const DECIMALS = 6;
 const INITIAL_SUPPLY = "1000000000000"; // 1,000,000 tokens with 6 decimals
 
-// Local-only demo: authorise the sale, create the token and KYC the deployer so the
-// app has something to call immediately after `yarn hardhat:deploy --network localhost`.
+// Local-only demo: create the token and KYC the deployer so the app has something to
+// call immediately after `yarn hardhat:deploy --network localhost`. Roles are granted
+// by 04_grant_roles.ts, which runs on every network.
 const createComplianceToken: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   if (hre.network.name !== "hardhat" && hre.network.name !== "localhost") {
     return;
@@ -16,11 +18,7 @@ const createComplianceToken: DeployFunction = async function (hre: HardhatRuntim
   const { get } = hre.deployments;
 
   const complianceToken = await hre.ethers.getContractAt("ComplianceToken", (await get("ComplianceToken")).address);
-  const tokenSale = await hre.ethers.getContractAt("TokenSale", (await get("TokenSale")).address);
 
-  await (
-    await complianceToken.grantRole(await complianceToken.SALE_OPERATOR_ROLE(), await tokenSale.getAddress())
-  ).wait();
   await (
     await complianceToken.createToken("Compliance Token", "CMP", DECIMALS, INITIAL_SUPPLY, { value: CREATION_FEE })
   ).wait();

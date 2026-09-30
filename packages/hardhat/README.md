@@ -48,7 +48,7 @@ From the repo root:
 ## Layout
 
 - `contracts/` — Solidity sources (production contracts and `test/` mocks)
-- `deploy/` — hardhat-deploy scripts (`00`–`04`)
-- `scripts/` — account helpers and ABI generation
+- `deploy/` — hardhat-deploy scripts (`00`–`05`)
+- `scripts/` — account helpers, ABI generation, and `liveProof.ts` (testnet proof runner)
 - `test/` — unit tests (`yarn hardhat:test`)
 - `docs/architecture.md` — treasury/key and unit design
