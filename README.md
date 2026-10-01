@@ -8,7 +8,7 @@ investor credentials against a `did:hedera` issuer.
 Create a project from this template:
 
 ```bash
-npm create scaffold-hbar@latest -- --template <owner>/<this-repo>
+npm create scaffold-hbar@latest -- --template Jashk120/compliance-token-template
 ```
 
 ## What this template demonstrates
@@ -127,8 +127,8 @@ wallet** shown only on local networks.
 ### First commands
 
 ```bash
-npm create scaffold-hbar@latest -- --template <owner>/<this-repo>
-cd <this-repo>
+npm create scaffold-hbar@latest -- --template Jashk120/compliance-token-template
+cd compliance-token-template
 yarn install
 yarn doctor          # fresh machine: NOT READY — follow the "next:" lines
 yarn setup           # enter keys through hidden prompts
@@ -155,7 +155,7 @@ have run — it prints the exact next command for each item.
 ### From a fresh clone / scaffold
 
 ```bash
-git clone <this-repo> && cd <this-repo>   # or the npm create … command above
+git clone https://github.com/Jashk120/compliance-token-template && cd compliance-token-template   # or the npm create … command above
 yarn install
 yarn setup          # interactive: fills only what is missing, hidden prompts, 0600 files
 yarn doctor         # read-only checklist; must print READY
