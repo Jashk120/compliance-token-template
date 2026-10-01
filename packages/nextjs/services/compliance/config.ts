@@ -24,10 +24,17 @@ export type ServerConfig = {
   adminApiToken: string;
   complianceTokenAddress: string;
   tokenSaleAddress: string;
+  atomicAudit: boolean;
 };
 
 export function activeNetwork(): HederaNetwork {
   return process.env.HEDERA_NETWORK === "mainnet" ? "mainnet" : "testnet";
+}
+
+const FALSY = new Set(["false", "0", "no", "off"]);
+
+function enabledByDefault(value: string | undefined): boolean {
+  return !FALSY.has((value ?? "true").trim().toLowerCase());
 }
 
 function clean(value: string | undefined): string | undefined {
@@ -82,6 +89,7 @@ export function getServerConfig(): ServerConfig {
     adminApiToken: clean(process.env.ADMIN_API_TOKEN) ?? "",
     complianceTokenAddress: complianceTokenAddress as string,
     tokenSaleAddress: tokenSaleAddress as string,
+    atomicAudit: enabledByDefault(process.env.HEDERA_ATOMIC_AUDIT),
   };
 }
 

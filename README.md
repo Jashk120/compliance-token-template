@@ -238,9 +238,9 @@ graph LR
   Chainlink["Chainlink HBAR/USD"]
 
   Browser --> API
-  API -->|operator SDK tx| Contracts
+  API -->|operator tx (atomic batch)| Contracts
   API -->|resolve DID / read logs| Mirror
-  API -->|submit audit msg| HCS
+  API -->|audit msg (same batch)| HCS
   Contracts -->|create/kyc/freeze| HTS[("HTS precompile 0x167")]
   Contracts -->|read price| Chainlink
   Browser -->|read| Mirror
@@ -260,10 +260,35 @@ sequenceDiagram
   A->>D: resolveDID(ISSUER_DID)
   D-->>A: #did-root-key (Ed25519)
   A->>A: verify signature against resolved key
-  A->>H: grantKyc (COMPLIANCE_OFFICER_ROLE)
-  A->>H: HCS audit message
+  A->>H: atomic batch [HCS audit msg, grantKyc]
   H-->>I: 200 + tx id + audit id
 ```
+
+### Audit atomicity (HIP-551)
+
+Every compliance action (`grantKyc`, `revokeKyc`, `freeze`, `unfreeze`, `pause`,
+`unpause`) commits the contract call and its HCS audit message in **one HIP-551 atomic
+batch** (`BatchTransaction`). Both legs land or neither does, so the audit trail can never
+diverge from token state — the split-brain failure where a freeze succeeds but its audit
+line is missing.
+
+The batch is built in `services/compliance/atomicAudit.ts`:
+
+- Inner order is mandatory: `TopicMessageSubmitTransaction` first, `ContractExecuteTransaction`
+  last. Since September 2026 Hedera allows **at most one contract call per batch and it must
+  be the final inner transaction**; the reverse order is rejected.
+- One batch key (the operator's public key) marks and signs both inner transactions; the
+  outer batch is signed by that same key.
+- The audit message is built from the contract transaction id it commits alongside, so the
+  HCS entry links back to the exact HTS transaction.
+- Set `HEDERA_ATOMIC_AUDIT=false` to fall back to the legacy sequential path (contract call,
+  then a separate HCS submit). **That path is not atomic** and is only an escape hatch for a
+  network without batch support.
+
+Hedera has announced that contract calls inside batches enter a six-month deprecation period
+and are removed around **March 2027**. When that lands, move the compliance check inside the
+contract (HTS system-contract call) so the batch contains only native operations, or keep the
+sequential path and document the atomicity trade-off.
 
 The `/investor` page drives these steps as **associate → verify → buy**, unlocking
 each step from on-chain status.
@@ -385,6 +410,12 @@ Highlights from the recorded run (testnet):
 - **Demo-grade admin guard.** `ADMIN_API_TOKEN` is a single shared secret, not real auth.
 - **The real DID mode** is live `did:hedera` resolution; reduced mode exists only as an
   explicit, clearly-labelled fallback.
+- **Audit writes are atomic by default (HIP-551).** With `HEDERA_ATOMIC_AUDIT=false` the
+  action and its audit message are two separate transactions and can diverge. Contract calls
+  inside batches are deprecated and removed ~March 2027 — see [Audit atomicity](#audit-atomicity-hip-551).
+- **Coarse atomic error code.** When a batched contract call reverts, the batch receipt only
+  reports `INNER_TRANSACTION_FAILED`, so the specific HTS/revert code is not mapped to the
+  HTTP error (the sequential path reports the underlying message).
 
 ## Developer commands
 

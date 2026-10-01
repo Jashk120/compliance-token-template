@@ -81,6 +81,11 @@ The HTS address is injected through the `ComplianceToken` constructor, so tests 
 deployed `MockHTS` instead of the `0x167` precompile. Contract tests run offline
 (`yarn hardhat:test`); see `packages/hardhat/docs/architecture.md`.
 
+Compliance actions and their HCS audit messages are committed in one HIP-551 atomic batch
+(`packages/nextjs/services/compliance/atomicAudit.ts`): the HCS submit is inner first and the
+single contract call inner last, per Hedera's September 2026 rule. Set `HEDERA_ATOMIC_AUDIT=false`
+to use the legacy sequential path, which is not atomic.
+
 Use the package manager this project was created with (`packageManager` in the root
 `package.json`, or the lockfile). Examples use `yarn`.
 

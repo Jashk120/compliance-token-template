@@ -1,18 +1,12 @@
+import { submitActionWithAudit } from "./atomicAudit";
 import { submitAuditMessage } from "./auditLog";
 import { getServerConfig } from "./config";
-import { ComplianceActionError } from "./errors";
+import { buildComplianceContractTransaction } from "./contractCall";
+import { ComplianceActionError, describeSdkError } from "./errors";
 import { getOperatorClient } from "./hederaClient";
-import {
-  AccountId,
-  ContractExecuteTransaction,
-  ContractFunctionParameters,
-  ContractId,
-  Status,
-} from "@hiero-ledger/sdk";
+import { AccountId, Status } from "@hiero-ledger/sdk";
 import type { ComplianceAction } from "~~/utils/compliance/hts";
 import type { AuditMessage } from "~~/utils/compliance/types";
-
-const CONTRACT_GAS = 800_000;
 
 export type ComplianceActionResult = {
   action: ComplianceAction;
@@ -46,29 +40,10 @@ export function alreadyInStateResult(
   };
 }
 
-function describeSdkError(error: unknown): string {
-  if (
-    error !== null &&
-    typeof error === "object" &&
-    "message" in error &&
-    typeof (error as { message: unknown }).message === "string"
-  ) {
-    return (error as { message: string }).message;
-  }
-  return "The contract call failed.";
-}
-
-function resolveContractId(address: string): ContractId {
-  return address.startsWith("0x") ? ContractId.fromEvmAddress(0, 0, address) : ContractId.fromString(address);
-}
-
 async function executeAction(action: ComplianceAction, account?: string): Promise<string> {
   const config = getServerConfig();
   const client = getOperatorClient();
-  const transaction = new ContractExecuteTransaction()
-    .setContractId(resolveContractId(config.complianceTokenAddress))
-    .setGas(CONTRACT_GAS)
-    .setFunction(action, account ? new ContractFunctionParameters().addAddress(account) : undefined);
+  const transaction = buildComplianceContractTransaction(action, account ?? null, config.complianceTokenAddress);
 
   try {
     const response = await transaction.execute(client);
@@ -90,18 +65,31 @@ export async function runComplianceAction(
   account: string | null,
   credentialHash?: string,
 ): Promise<ComplianceActionResult> {
-  const txId = await executeAction(action, account ?? undefined);
+  const config = getServerConfig();
   const operator = operatorEvmAddress();
   const timestamp = new Date().toISOString();
-  const message: AuditMessage = {
+  const makeAuditMessage = (txId: string): AuditMessage => ({
     action,
     account: account ?? operator,
     operator,
     txId,
     timestamp,
     ...(credentialHash ? { credentialHash } : {}),
-  };
-  const auditTxId = await submitAuditMessage(message);
+  });
+
+  if (config.atomicAudit) {
+    const { txId, auditTxId } = await submitActionWithAudit(getOperatorClient(), {
+      action,
+      account,
+      contractAddress: config.complianceTokenAddress,
+      topicId: config.auditTopicId,
+      makeAuditMessage,
+    });
+    return { action, account, operator, txId, auditTxId, timestamp };
+  }
+
+  const txId = await executeAction(action, account ?? undefined);
+  const auditTxId = await submitAuditMessage(makeAuditMessage(txId));
   return { action, account, operator, txId, auditTxId, timestamp };
 }
 

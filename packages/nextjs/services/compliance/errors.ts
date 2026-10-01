@@ -50,6 +50,18 @@ export class ComplianceActionError extends Error {
   }
 }
 
+export function describeSdkError(error: unknown): string {
+  if (
+    error !== null &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof (error as { message: unknown }).message === "string"
+  ) {
+    return (error as { message: string }).message;
+  }
+  return "The contract call failed.";
+}
+
 export class UpstreamError extends Error {
   constructor(message: string) {
     super(message);
