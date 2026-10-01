@@ -11,7 +11,7 @@ description: Deploy the Compliance Token template to Hedera testnet and produce 
 2. `yarn doctor --strict` — deploy gate; exit 0 required.
 3. `yarn deploy:testnet` — contracts, token, roles, audit topic, issuer DID.
 4. `yarn proof` — runs the live proof and writes `packages/hardhat/docs/testnet-proof.md`.
-5. `yarn next:dev` — boot the app.
+5. `yarn dev` — boot the app.
 
 `yarn deploy:testnet` is resumable: it detects work already done from the chain / Mirror Node and prints what it skipped.
 

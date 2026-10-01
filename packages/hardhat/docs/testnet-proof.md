@@ -7,7 +7,7 @@ Network: hederaTestnet (chain id 296) · Explorer: https://hashscan.io/testnet
 
 | Step | Expected | Actual | Tx hash | HashScan | Notes |
 | --- | --- | --- | --- | --- | --- |
-| LIVE-1 buy unassociated | NotAssociated(184) | KycNotGranted(176) | - | - | eth_call |
+| LIVE-1 buy unassociated | KycNotGranted(176) | KycNotGranted(176) | - | - | eth_call |
 | LIVE-2 associate | 22 | staticCall rc=194 | `0x9ff6a089812bdff22ad61a4bd6eea307a38db00a05e73ce5932f9b32fda8dc9b` | https://hashscan.io/testnet/tx/0x9ff6a089812bdff22ad61a4bd6eea307a38db00a05e73ce5932f9b32fda8dc9b | via 0x167 |
 | LIVE-2 buy without KYC | KycNotGranted(176) | KycNotGranted(176) | - | - | eth_call |
 | LIVE-3a grantKyc unassociated | HtsCallFailed(184) | HtsCallFailed(184) | - | - | real response code |

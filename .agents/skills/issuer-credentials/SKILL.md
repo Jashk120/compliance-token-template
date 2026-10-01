@@ -36,8 +36,13 @@ Direct the user to `yarn setup` rather than editing env files by hand. It is int
 
 | File                         | Variables                                                                                                                                                                  |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/hardhat/.env`      | `DEPLOYER_PRIVATE_KEY` or `DEPLOYER_PRIVATE_KEY_ENCRYPTED`, `INVESTOR_PRIVATE_KEY`                                                                                         |
+| `packages/hardhat/.env`      | `DEPLOYER_PRIVATE_KEY` or `DEPLOYER_PRIVATE_KEY_ENCRYPTED`, `INVESTOR_PRIVATE_KEY`, `INVESTOR_ADDRESS`, `OFFICER_ADDRESS`, `OFFICER_PRIVATE_KEY`, `GRANT_OPERATOR_OFFICER` |
 | `packages/nextjs/.env.local` | `HEDERA_OPERATOR_ID`, `HEDERA_OPERATOR_PRIVATE_KEY`, `ISSUER_DID_PRIVATE_KEY`, `ISSUER_DID` / `ISSUER_PUBLIC_KEY`, `ADMIN_API_TOKEN`, `AUDIT_TOPIC_ID`, contract addresses |
+
+- `OFFICER_ADDRESS` — compliance officer address, defaults to the deployer.
+- `OFFICER_PRIVATE_KEY` — officer key used by the live proof.
+- `GRANT_OPERATOR_OFFICER` — defaults false; set true only after the CallerProbe proof.
+- `INVESTOR_ADDRESS` — optional subject override for `credential:issue`.
 
 Both files are git-ignored. The deployer key must never appear under `packages/nextjs/` and no secret may use a `NEXT_PUBLIC_` prefix — doctor reports both as UNSAFE.
 

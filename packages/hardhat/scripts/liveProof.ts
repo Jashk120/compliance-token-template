@@ -151,9 +151,9 @@ async function main(): Promise<void> {
   // LIVE-1: buy while not associated.
   try {
     await sale.buy.staticCall({ value: buyValue });
-    record("LIVE-1 buy unassociated", "NotAssociated(184)", "SUCCEEDED (unexpected)", "-", "eth_call");
+    record("LIVE-1 buy unassociated", "KycNotGranted(176)", "SUCCEEDED (unexpected)", "-", "eth_call");
   } catch (err) {
-    record("LIVE-1 buy unassociated", "NotAssociated(184)", describe(sale, err), "-", "eth_call");
+    record("LIVE-1 buy unassociated", "KycNotGranted(176)", describe(sale, err), "-", "eth_call");
   }
 
   // LIVE-2: associate via the precompile, then buy without KYC.

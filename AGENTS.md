@@ -28,9 +28,13 @@ Load the one that matches the task:
 | [`deploy-and-proof`](.agents/skills/deploy-and-proof/SKILL.md)         | deploying to testnet, creating the token/topic, granting roles, registering the DID, running `yarn proof`                    |
 | [`extending-compliance`](.agents/skills/extending-compliance/SKILL.md) | adding a role, an HCS/admin action, swapping the price feed, or adding a compliance rule                                     |
 | [`troubleshooting`](.agents/skills/troubleshooting/SKILL.md)           | a command errors or the app misbehaves                                                                                       |
-| `solidity-security`                                                    | writing or auditing contracts                                                                                                |
+| [`solidity-security`](.agents/skills/solidity-security/SKILL.md) | writing or auditing contracts                                                                                                |
 
 Scaffold-HBAR installs the upstream Hedera skills with `--skip-hedera-skills` to opt out.
+
+| Agent                                                                | Use when                                   |
+| -------------------------------------------------------------------- | ------------------------------------------ |
+| [`grumpy-carlos-code-reviewer`](.agents/agents/grumpy-carlos-code-reviewer.md) | reviewing code for quality, conventions, security |
 
 ## Developer experience commands
 

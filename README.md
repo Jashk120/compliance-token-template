@@ -424,7 +424,7 @@ Highlights from the recorded run (testnet):
 | `yarn doctor`                                | Read-only checklist (`--json`, `--strict`); exits 0 only when READY.     |
 | `yarn setup`                                 | Interactive, idempotent, secret-safe credential setup.                   |
 | `yarn deploy:testnet`                        | Resumable deploy (contracts, token, roles, topic, issuer DID).           |
-| `yarn proof`                                 | Runs the live proof and writes `docs/testnet-proof.md`.                  |
+| `yarn proof`                                 | Runs the live proof and writes `packages/hardhat/docs/testnet-proof.md`. |
 | `yarn workspace @sh/nextjs credential:issue` | Prints a signed investor credential for the env subject; writes nothing. |
 | `yarn dev`                                   | Start the Next.js app.                                                   |
 

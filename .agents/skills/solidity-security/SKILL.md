@@ -7,6 +7,15 @@ description: Master smart contract security best practices to prevent common vul
 
 Master smart contract security best practices, vulnerability prevention, and secure Solidity development patterns.
 
+## This template
+
+Contracts: `packages/hardhat/contracts/ComplianceToken.sol`, `TokenSale.sol`,
+`ChainlinkPriceFeedAdapter.sol`, plus `MockHTS` in `contracts/test`.
+The HTS token uses strict `contractId` keys bound to the contract (no proxy or
+`msg.sender` forwarding), `treasury = address(this)`, and HTS decides transfer
+compliance, mapped from response codes 184 (`NotAssociated`), 176
+(`KycNotGranted`), 165 (`Frozen`), 265 (`Paused`).
+
 ## When to Use This Skill
 
 - Writing secure smart contracts

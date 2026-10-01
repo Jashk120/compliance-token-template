@@ -265,7 +265,7 @@ async function main(): Promise<void> {
   const didTopic = finalEnv.ISSUER_DID?.split("_").pop();
   if (didTopic) console.log(`Issuer DID topic ${explorer}/topic/${didTopic}`);
   if (skipped.length > 0) console.log(`\nResumed — skipped: ${skipped.join(", ")}`);
-  console.log("\nNext: yarn doctor && yarn next:dev");
+  console.log("\nNext: yarn doctor && yarn dev");
 }
 
 main().catch(error => {

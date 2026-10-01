@@ -32,18 +32,17 @@ From the repo root:
    ```
    `yarn hardhat:test:forking` runs the same suite against a forked Hedera testnet.
 
-## Deploy and verify on Hedera testnet/mainnet
+## Deploy and proof on Hedera testnet (DX flow)
 
-1. Generate or import a deployer account:
-   ```bash
-   yarn hardhat:account:generate
-   ```
-2. Fund it on testnet: <https://portal.hedera.com/faucet>.
-3. Deploy and verify:
-   ```bash
-   yarn hardhat:deploy --network hederaTestnet
-   yarn hardhat:verify:testnet
-   ```
+From the repo root (see the root README for the full walkthrough):
+
+```bash
+yarn setup
+yarn doctor
+yarn deploy:testnet  # contracts, token, roles, audit topic, issuer DID
+yarn proof           # writes docs/testnet-proof.md
+yarn dev             # frontend
+```
 
 ## Layout
 

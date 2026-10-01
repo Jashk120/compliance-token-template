@@ -26,12 +26,12 @@ needed. Then: `yarn setup` → `yarn doctor` → `yarn deploy:testnet` → `yarn
 
 ## `ERR_PACKAGE_PATH_NOT_EXPORTED: ./lib/client/NodeClient`
 
-`@hiero-did-sdk/hcs@0.2.1` deep-imports an unexported subpath of `@hiero-ledger/sdk`; every 2.x release restricts `exports` to `"."`.
+`@hiero-did-sdk/hcs@0.2.1` (transitive via `@hiero-did-sdk/registrar` and `@hiero-did-sdk/resolver`, the only direct DID deps) deep-imports an unexported subpath of `@hiero-ledger/sdk`; every 2.x release restricts `exports` to `"."`.
 
 - Next.js: the webpack alias in `packages/nextjs/next.config.ts` maps the specifier to the physical file.
 - CLI scripts under tsx: `packages/hardhat/...` does not use this SDK, but `yarn workspace @sh/nextjs issuer:register` does. It is registered with `tsx --import ./scripts/registerHieroNodeClientLoader.mjs`, which patches both ESM and CommonJS resolution (`scripts/hieroNodeClientLoader.mjs`).
 
-Do not remove either workaround; `@hiero-ledger/sdk` is pinned to `2.89.1` for this reason.
+Do not remove either workaround; the frontend (`packages/nextjs`) pins `@hiero-ledger/sdk` to `2.89.1` while `packages/hardhat` allows `2.80.x+` for this reason.
 
 ## `Invalid private key format. Expected DER`
 
