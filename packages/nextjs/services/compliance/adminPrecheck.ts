@@ -36,7 +36,10 @@ export async function precheckAdminAction(action: ComplianceAction, account: str
     }
     const relationship = await getTokenRelationship(account, tokenInfo.tokenId);
     return alreadyInStateMessage(action, { frozen: relationship.frozen, kycGranted: relationship.kycGranted, paused });
-  } catch {
+  } catch (error) {
+    // Best-effort: a mirror/RPC blip must not block the action, but log it so the skipped
+    // pre-check is visible in server logs instead of silently changing behaviour.
+    console.warn("[compliance] admin pre-check skipped", error);
     return null;
   }
 }

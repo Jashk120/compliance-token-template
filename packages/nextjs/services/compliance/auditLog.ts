@@ -2,6 +2,7 @@ import { getAuditConfig, getServerConfig } from "./config";
 import { UpstreamError } from "./errors";
 import { getOperatorClient } from "./hederaClient";
 import { auditMessageSchema } from "./schemas";
+import { fetchUpstream } from "./upstream";
 import { Status, TopicMessageSubmitTransaction } from "@hiero-ledger/sdk";
 import type { AuditEntry, AuditMessage } from "~~/utils/compliance/types";
 
@@ -57,7 +58,7 @@ export async function submitAuditMessage(message: AuditMessage): Promise<string>
 async function fetchPage(pathOrUrl: string): Promise<MirrorPage> {
   const { mirrorBaseUrl } = getAuditConfig();
   const url = pathOrUrl.startsWith("http") ? pathOrUrl : `${mirrorBaseUrl}${pathOrUrl}`;
-  const response = await fetch(url, { cache: "no-store" });
+  const response = await fetchUpstream(url, { cache: "no-store" });
   if (!response.ok) {
     throw new UpstreamError(`Mirror node request failed (${response.status})`);
   }

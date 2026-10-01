@@ -1,3 +1,4 @@
+import { CredentialError } from "./errors";
 import { KeysUtility } from "@hiero-did-sdk/core";
 import { createHash } from "node:crypto";
 import { canonicalJson } from "~~/utils/compliance/canonical";
@@ -48,5 +49,5 @@ export function verifierFromVerificationMethod(method: {
   if (method.publicKeyBase58) {
     return KeysUtility.fromBase58(method.publicKeyBase58).toPublicKey();
   }
-  throw new Error("Unsupported DID verification method");
+  throw new CredentialError("WRONG_ISSUER", "The issuer DID uses an unsupported verification method.");
 }

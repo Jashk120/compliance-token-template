@@ -1,5 +1,6 @@
 import { getServerConfig } from "./config";
 import { UpstreamError } from "./errors";
+import { fetchUpstream } from "./upstream";
 import { decodeFunctionResult, encodeFunctionData } from "viem";
 import { complianceTokenAbi, tokenSaleAbi } from "~~/utils/compliance/abis";
 
@@ -23,7 +24,7 @@ async function ethCall(
   args: readonly unknown[] = [],
 ): Promise<unknown> {
   const data = encode({ abi, functionName, args });
-  const response = await fetch(rpcUrl, {
+  const response = await fetchUpstream(rpcUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

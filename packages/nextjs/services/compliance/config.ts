@@ -42,6 +42,10 @@ function clean(value: string | undefined): string | undefined {
   return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
+export function mirrorBaseFor(network: HederaNetwork): string {
+  return clean(process.env.HEDERA_MIRROR_URL) ?? MIRROR_BASE[network];
+}
+
 function deployedAddress(chainId: number, name: "ComplianceToken" | "TokenSale"): string | undefined {
   const entry = (deployedContracts as Record<number, Record<string, { address?: string }>>)[chainId]?.[name];
   const address = entry?.address;
@@ -80,7 +84,7 @@ export function getServerConfig(): ServerConfig {
   return {
     network,
     chainId,
-    mirrorBaseUrl: clean(process.env.HEDERA_MIRROR_URL) ?? MIRROR_BASE[network],
+    mirrorBaseUrl: mirrorBaseFor(network),
     rpcUrl: clean(process.env.HEDERA_RPC_URL) ?? RPC_URL[network],
     operatorId: operatorId as string,
     operatorKey: operatorKey as string,
@@ -108,7 +112,7 @@ export function getAuditConfig(): AuditConfig {
   }
   return {
     network,
-    mirrorBaseUrl: clean(process.env.HEDERA_MIRROR_URL) ?? MIRROR_BASE[network],
+    mirrorBaseUrl: mirrorBaseFor(network),
     auditTopicId,
   };
 }

@@ -9,7 +9,7 @@ export const ACTIONS_WITHOUT_ACCOUNT = new Set(["pause", "unpause"]);
 
 export type AdminActionResult =
   | { ok: true; result: ComplianceActionResult }
-  | { ok: false; code: string; message: string };
+  | { ok: false; status: number; code: string; message: string };
 
 /** Single entry point for the admin actions, shared by the HTTP route and the Server Action. */
 export async function runAdminActionCore(routeAction: string, account: string | null): Promise<ComplianceActionResult> {

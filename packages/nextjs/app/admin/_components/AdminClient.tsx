@@ -33,7 +33,12 @@ export function AdminClient({ config }: { config: PublicConfig }) {
     try {
       const [tokenResponse, audit] = await Promise.all([fetch("/api/token"), fetchAudit(50)]);
       if (!tokenResponse.ok) {
-        throw new Error(`Token state request failed (${tokenResponse.status})`);
+        const body = (await tokenResponse.json().catch(() => null)) as { message?: string } | null;
+        throw new ApiRequestError(
+          "TOKEN_STATE_ERROR",
+          body?.message ?? `Token state request failed (${tokenResponse.status})`,
+          tokenResponse.status,
+        );
       }
       setTokenState((await tokenResponse.json()) as TokenState);
       setAccounts(previous => {
@@ -62,7 +67,7 @@ export function AdminClient({ config }: { config: PublicConfig }) {
     }
     const outcome = await runAdminActionServer(action, account ?? null);
     if (!outcome.ok) {
-      throw new ApiRequestError(outcome.code, outcome.message, 422);
+      throw new ApiRequestError(outcome.code, outcome.message, outcome.status);
     }
     return outcome.result;
   }

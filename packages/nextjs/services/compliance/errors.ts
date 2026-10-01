@@ -114,5 +114,6 @@ export function toApiError(error: unknown): { status: number; body: ApiError } {
   if (error instanceof UpstreamError) {
     return { status: 502, body: { code: "UPSTREAM_ERROR", message: error.message } };
   }
+  console.error("[compliance] unhandled error", error);
   return { status: 500, body: { code: "INTERNAL_ERROR", message: "An unexpected error occurred." } };
 }

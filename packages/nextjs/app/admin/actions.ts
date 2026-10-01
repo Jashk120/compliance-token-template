@@ -10,7 +10,7 @@ export async function runAdminActionServer(routeAction: string, account: string 
   try {
     return { ok: true, result: await runAdminActionCore(routeAction, account) };
   } catch (error) {
-    const { body } = toApiError(error);
-    return { ok: false, code: body.code, message: body.message };
+    const { status, body } = toApiError(error);
+    return { ok: false, status, code: body.code, message: body.message };
   }
 }

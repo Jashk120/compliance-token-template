@@ -1,9 +1,10 @@
 import { getServerConfig } from "./config";
 import { UpstreamError } from "./errors";
+import { fetchUpstream } from "./upstream";
 
 async function mirrorGet<T>(path: string): Promise<T | null> {
   const { mirrorBaseUrl } = getServerConfig();
-  const response = await fetch(`${mirrorBaseUrl}${path}`, { cache: "no-store" });
+  const response = await fetchUpstream(`${mirrorBaseUrl}${path}`, { cache: "no-store" });
   if (response.status === 404) {
     return null;
   }
