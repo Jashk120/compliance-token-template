@@ -44,6 +44,9 @@
     "next:serve": "yarn workspace @sh/nextjs serve",
     "next:start": "yarn workspace @sh/nextjs start",
     "next:test": "yarn workspace @sh/nextjs test",
+    "issuer:register": "yarn workspace @sh/nextjs issuer:register",
+    "audit:create-topic": "yarn workspace @sh/nextjs audit:create-topic",
+    "credential:issue": "yarn workspace @sh/nextjs credential:issue",
     "postinstall": "husky",
     "precommit": "lint-staged",
     "lint-staged": "lint-staged"

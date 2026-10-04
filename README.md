@@ -128,7 +128,7 @@ wallet** shown only on local networks.
 
 ```bash
 npm create scaffold-hbar@latest -- --template Jashk120/compliance-token-template
-cd compliance-token-template
+cd <your-project-name>  # scaffolder default is `my-hedera-dapp`
 yarn install
 yarn doctor          # fresh machine: NOT READY — follow the "next:" lines
 yarn setup           # enter keys through hidden prompts
@@ -201,6 +201,7 @@ files are git-ignored. `yarn doctor` validates all of them without printing a va
 | `INVESTOR_PRIVATE_KEY`           | `0x` + 64 hex         | Throwaway buyer used by `yarn proof`                             | `yarn setup` (optional) / `yarn proof`          |
 | `OFFICER_PRIVATE_KEY`            | `0x` + 64 hex         | Optional override for the acting compliance officer in the proof | manual                                          |
 | `HEDERA_RPC_URL`                 | URL                   | Hedera JSON-RPC endpoint (testnet default)                       | manual                                          |
+| `HBAR_USD_FEED`                  | `0x` + 40 hex         | Chainlink HBAR/USD aggregator override; defaults to the per-network feed selected in `deploy/02_deploy_price_feed.ts`, and is read by `yarn doctor` and `yarn proof` (`scripts/liveProof.ts`) | manual (optional) |
 
 **`packages/nextjs/.env.local`** — frontend + API server (copy from `.env.example`):
 
@@ -209,10 +210,12 @@ files are git-ignored. `yarn doctor` validates all of them without printing a va
 | `HEDERA_NETWORK`              | `testnet` \| `mainnet`             | Selects network, chain id, mirror and HashScan base                          | `yarn deploy:testnet`                                        |
 | `HEDERA_OPERATOR_ID`          | `0.0.x`                            | Operator account that signs compliance transactions                          | `yarn setup` / `yarn doctor`                                 |
 | `HEDERA_OPERATOR_PRIVATE_KEY` | Ed25519 raw hex or DER             | Operator key; derived public key is compared to the Mirror Node              | `yarn setup` / `yarn doctor`                                 |
+| `HEDERA_ATOMIC_AUDIT`           | boolean                            | Commits each compliance action and its HCS audit message in one HIP-551 atomic batch. Defaults to enabled; set `false` to use the legacy, non-atomic sequential path | `yarn doctor` / manual                                       |
 | `ISSUER_DID`                  | `did:hedera:testnet:<key>_<topic>` | Issuer DID resolved from HCS to verify credentials (live mode)               | `yarn deploy:testnet` / `issuer:register`                    |
 | `ISSUER_DID_PRIVATE_KEY`      | Ed25519 raw hex or DER             | Signs investor credentials (`credential:issue`, `issuer:register`)           | `yarn setup` / `yarn doctor`                                 |
 | `ISSUER_PUBLIC_KEY`           | base58 or multibase `z…`           | Reduced-mode fallback: verify against this key instead of resolving the DID  | `yarn setup` (fallback only) / `yarn doctor`                 |
 | `AUDIT_TOPIC_ID`              | `0.0.x`                            | HCS topic for the audit log                                                  | `yarn deploy:testnet` / `audit:create-topic` / `yarn doctor` |
+| `HEDERA_MIRROR_URL`           | URL                                | Optional override of the Mirror Node used by the audit timeline and account lookups; defaults to the public mirror for `HEDERA_NETWORK` | manual (optional)                                            |
 | `COMPLIANCE_TOKEN_ADDRESS`    | `0x` + 40 hex                      | `ComplianceToken` address (fallback when absent from `deployedContracts.ts`) | `yarn deploy:testnet` / `yarn doctor`                        |
 | `TOKEN_SALE_ADDRESS`          | `0x` + 40 hex                      | `TokenSale` address                                                          | `yarn deploy:testnet` / `yarn doctor`                        |
 | `ADMIN_API_TOKEN`             | ≥ 32 chars                         | Demo-grade Bearer token for `/api/admin/*`                                   | `yarn setup` / `yarn doctor`                                 |
@@ -330,6 +333,13 @@ Roles: `DEFAULT_ADMIN_ROLE` (roles + creation fee), `COMPLIANCE_OFFICER_ROLE`
 
 ### Frontend pages
 
+- `/` — landing page: a hero showing the connected-wallet state; a "What this
+  template demonstrates" grid of four feature cards (HTS compliance controls,
+  oracle-priced sale, verifiable credentials, HCS audit trail); an "Explore the
+  app" grid linking to `/investor`, `/admin` and `/audit` plus a HashScan
+  block-explorer link; a "How it works" 4-step flow (associate → verify
+  credential → grant KYC → buy); and a quick-start block (`yarn setup` /
+  `yarn doctor` → `yarn deploy:testnet` → `yarn dev` → faucet).
 - `/investor` — guided three-step flow: **1. Associate token → 2. Verify KYC → 3. Buy
   tokens**. Steps unlock progressively from on-chain status (`associated`,
   `kycGranted`, `spentUsd8 > 0`) and each shows **locked** / **current** /
@@ -347,13 +357,13 @@ Roles: `DEFAULT_ADMIN_ROLE` (roles + creation fee), `COMPLIANCE_OFFICER_ROLE`
   account / operator / transaction as HashScan links, and the copyable
   credential-proof hash.
 
-Helper scripts (run from `packages/nextjs`):
+Helper scripts (run from the repo root; each is a proxy for the `@sh/nextjs` script):
 
 ```bash
-yarn workspace @sh/nextjs issuer:register                      # register the issuer did:hedera
-yarn workspace @sh/nextjs audit:create-topic                    # create the HCS audit topic
-yarn workspace @sh/nextjs credential:issue                      # print a signed credential for the env investor address
-yarn workspace @sh/nextjs credential:issue --address 0x...      # ...or for an explicit address
+yarn issuer:register                      # register the issuer did:hedera
+yarn audit:create-topic                   # create the HCS audit topic
+yarn credential:issue                     # print a signed credential for the env investor address
+yarn credential:issue --address 0x...     # ...or for an explicit address
 ```
 
 The helper scripts load `packages/nextjs/.env.local` automatically (`credential:issue` also
@@ -425,7 +435,7 @@ Highlights from the recorded run (testnet):
 | `yarn setup`                                 | Interactive, idempotent, secret-safe credential setup.                   |
 | `yarn deploy:testnet`                        | Resumable deploy (contracts, token, roles, topic, issuer DID).           |
 | `yarn proof`                                 | Runs the live proof and writes `packages/hardhat/docs/testnet-proof.md`. |
-| `yarn workspace @sh/nextjs credential:issue` | Prints a signed investor credential for the env subject; writes nothing. |
+| `yarn credential:issue`                      | Prints a signed investor credential for the env subject; writes nothing. |
 | `yarn dev`                                   | Start the Next.js app.                                                   |
 
 ## Troubleshooting
@@ -443,6 +453,26 @@ Common cases:
 - **Buys revert `StalePrice`** — the oracle answer is older than `maxStaleness`.
 - **DID verification fails** — check `yarn doctor` issuer mode; re-register with
   `yarn deploy:testnet`.
+- **Token creation reverts `InsufficientCreationFee`, or buy amounts are off by
+  1e10** — `msg.value` inside the EVM is tinybar (8 decimals) while the JSON-RPC
+  `value` field is weibar (18 decimals); send `tinybar * 1e10` weibar from
+  JSON-RPC clients and keep on-chain math in tinybar.
+- **Token-create precompile call fails (`INVALID_RENEWAL_PERIOD`, immutable
+  token)** — HTS token creation needs an ADMIN key and a non-zero auto-renew
+  period; `createToken` already sets both.
+- **Deploy or state-changing transaction rejected for a low gas price** — pin the
+  explicit network gas price from `eth_gasPrice`; ethers fee estimation can pick
+  a value below the Hedera minimum (deploy scripts and `yarn proof` already do).
+- **Hashio returns HTTP 403** — usually a corporate proxy, VPN, or firewall
+  blocking the host, or relay rate limiting rather than a bad key; allow
+  `testnet.hashio.io` through and keep RPC/Mirror calls server-side.
+- **`git commit` fails with "Please tell me who you are"** — fresh machines have
+  no Git identity; set `git config user.name` / `git config user.email` before
+  committing.
+- **Intermittent blank 500s or read failures under load (429/5xx)** — Hashio and
+  the public Mirror Node are shared, rate-limited endpoints; the API layer
+  already retries 429/5xx with backoff, and the frontend falls back automatically
+  when `NEXT_PUBLIC_HEDERA_TESTNET_RPC_URL` points at another relay.
 
 ## Project layout
 

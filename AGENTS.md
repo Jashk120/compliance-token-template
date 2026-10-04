@@ -44,12 +44,13 @@ Scaffold-HBAR installs the upstream Hedera skills with `--skip-hedera-skills` to
 | `yarn setup`                                 | Interactive, idempotent, secret-safe credential setup.                                                           |
 | `yarn deploy:testnet`                        | Resumable deploy: contracts, token, roles, audit topic, issuer DID → `packages/nextjs/.env.local`.               |
 | `yarn proof`                                 | Runs the live proof, writes `packages/hardhat/docs/testnet-proof.md`.                                            |
-| `yarn workspace @sh/nextjs credential:issue` | Prints a signed investor credential (`--address` → `INVESTOR_ADDRESS` → `INVESTOR_PRIVATE_KEY`); writes nothing. |
+| `yarn credential:issue`                      | Prints a signed investor credential (`--address` → `INVESTOR_ADDRESS` → `INVESTOR_PRIVATE_KEY`); writes nothing. |
 
 The documented order is `yarn setup` → `yarn doctor` → `yarn deploy:testnet` → `yarn dev`.
 
-The helper scripts (`issuer:register`, `audit:create-topic`, `credential:issue`) load
-`packages/nextjs/.env.local` automatically; `credential:issue` also reads
+The helper scripts (`issuer:register`, `audit:create-topic`, `credential:issue`) are exposed
+as root proxies (`yarn <script>`), so run them from the repo root instead of `packages/nextjs`.
+They load `packages/nextjs/.env.local` automatically; `credential:issue` also reads
 `packages/hardhat/.env`.
 
 ## Prerequisites (from zero)

@@ -55,7 +55,7 @@ Run `yarn doctor` to see which mode is active.
 
 ## Issuing an investor credential
 
-`yarn workspace @sh/nextjs credential:issue` prints a credential signed by the issuer key
+`yarn credential:issue` (run from the repo root) prints a credential signed by the issuer key
 (`ISSUER_DID_PRIVATE_KEY`). The subject resolves from `--address`, else `INVESTOR_ADDRESS`,
 else the address derived from `INVESTOR_PRIVATE_KEY` (in `packages/hardhat/.env`). It loads
 both env files automatically and writes nothing to disk. Paste the JSON into the credential
